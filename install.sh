@@ -66,21 +66,9 @@ clone_plugin() {
 clone_plugin "superpowers" "obra/superpowers"
 clone_plugin "dev-browser-patchright" "sawyerhood/dev-browser"
 
-# Register as local marketplaces (requires claude CLI)
-if command -v claude &>/dev/null; then
-  echo "Registering plugin marketplaces..."
-  claude marketplace add superpowers-local "$HOME/superpowers" 2>/dev/null || true
-  claude marketplace add dev-browser-patchright-marketplace "$HOME/dev-browser-patchright" 2>/dev/null || true
-
-  # Install plugins from settings
-  echo "Installing plugins..."
-  claude plugin install superpowers@superpowers-local 2>/dev/null || true
-  claude plugin install dev-browser@dev-browser-patchright-marketplace 2>/dev/null || true
-else
-  echo "Claude CLI not found. Install it then run:"
-  echo "  claude marketplace add superpowers-local ~/superpowers"
-  echo "  claude marketplace add dev-browser-patchright-marketplace ~/dev-browser-patchright"
-fi
+echo ""
+echo "Plugin repos cloned. After 'claude login', run:"
+echo "  ./setup-claude.sh"
 
 # Hushlogin
 if [[ -f "$DOTFILES_DIR/hushlogin" ]]; then
@@ -100,5 +88,9 @@ fi
 
 echo ""
 echo "=== Done! ==="
-echo "Copy secrets.example to ~/.secrets and fill in your values"
-echo "Run 'source ~/.zshrc' to reload shell config"
+echo ""
+echo "Next steps:"
+echo "  1. Copy secrets.example to ~/.secrets and fill in your values"
+echo "  2. Run 'source ~/.zshrc' to reload shell config"
+echo "  3. Run 'claude login' to authenticate"
+echo "  4. Run './setup-claude.sh' to install plugins and configure MCPs"
