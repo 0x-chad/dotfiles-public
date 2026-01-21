@@ -21,23 +21,23 @@ fi
 echo "✓ Authenticated"
 echo ""
 
-# Register local plugin marketplaces
+# Register plugin marketplaces
 echo "=== Registering Plugin Marketplaces ==="
 
-register_marketplace() {
-  local name="$1"
-  local path="$2"
-
-  if [[ -d "$path" ]]; then
-    echo "Registering $name -> $path"
-    claude plugin marketplace add "$name" "$path" 2>/dev/null || echo "  (already registered or failed)"
-  else
-    echo "Skipping $name (directory not found: $path)"
-  fi
+add_marketplace() {
+  local source="$1"
+  echo "Adding marketplace: $source"
+  claude plugin marketplace add "$source" 2>&1 | grep -E "(Successfully|already|Failed)" || true
 }
 
-register_marketplace "superpowers-local" "$HOME/superpowers"
-register_marketplace "dev-browser-patchright-marketplace" "$HOME/dev-browser-patchright"
+# Local marketplaces (from cloned repos)
+add_marketplace "$HOME/superpowers"
+add_marketplace "$HOME/dev-browser-patchright"
+
+# Remote marketplaces (GitHub repos)
+add_marketplace "anthropics/claude-code"
+add_marketplace "raine/workmux"
+add_marketplace "MussaCharles/claude-code-image-sanitizer"
 echo ""
 
 # Install plugins
@@ -46,18 +46,18 @@ echo "=== Installing Plugins ==="
 install_plugin() {
   local plugin="$1"
   echo "Installing $plugin..."
-  claude plugin install "$plugin" 2>/dev/null || echo "  (already installed or failed)"
+  claude plugin install "$plugin" 2>&1 | grep -E "(Successfully|already|Failed)" || true
 }
 
-# Local plugins (from cloned repos)
-install_plugin "superpowers@superpowers-local"
-install_plugin "dev-browser@dev-browser-patchright-marketplace"
+# Local plugins (marketplace names are auto-generated from plugin.json)
+install_plugin "superpowers@superpowers-dev"
+install_plugin "dev-browser@dev-browser-marketplace"
 
-# Official marketplace plugins
+# Remote marketplace plugins
 install_plugin "frontend-design@claude-code-plugins"
-install_plugin "image-sanitizer@image-sanitizer-marketplace"
 install_plugin "ralph-wiggum@claude-code-plugins"
 install_plugin "workmux-status@workmux"
+install_plugin "image-sanitizer@image-sanitizer-marketplace"
 echo ""
 
 # Setup MCP servers
@@ -70,21 +70,24 @@ if [[ -d "$PAL_DIR" ]]; then
   claude mcp add pal \
     -e "ENV_FILE=$PAL_DIR/.env" \
     -- "$PAL_DIR/.pal_venv/bin/python" "$PAL_DIR/server.py" \
-    2>/dev/null || echo "  (already configured or failed)"
+    2>&1 | grep -E "(Successfully|already|Failed)" || echo "  ✓ Added"
 else
   echo "PAL MCP not found at $PAL_DIR - skipping"
-  echo "  To install: git clone <pal-repo> $PAL_DIR"
+  echo "  To install: git clone https://github.com/BeehiveInnovations/pal-mcp-server $PAL_DIR"
 fi
 echo ""
 
 # Verify setup
 echo "=== Verification ==="
 echo ""
+echo "Marketplaces:"
+claude plugin marketplace list 2>/dev/null || echo "  (none)"
+echo ""
 echo "MCP Servers:"
 claude mcp list 2>/dev/null || echo "  (none)"
 echo ""
 echo "Installed Plugins:"
-claude plugin list 2>/dev/null | head -20 || echo "  (none)"
+claude plugin list 2>/dev/null || echo "  (none)"
 echo ""
 
 echo "=== Setup Complete ==="
