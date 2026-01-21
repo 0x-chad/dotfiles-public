@@ -64,7 +64,7 @@ clone_plugin() {
 }
 
 clone_plugin "superpowers" "0x-chad/superpowers"
-clone_plugin "dev-browser-patchright" "sawyerhood/dev-browser"
+clone_plugin "dev-browser-patchright" "0x-chad/dev-browser-patchright"
 
 echo ""
 echo "Plugin repos cloned. After 'claude login', run:"
