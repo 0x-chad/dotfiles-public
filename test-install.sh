@@ -9,14 +9,19 @@ echo "1. Cloning dotfiles-public..."
 git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles
 cd ~/dotfiles
 
-# Create mock secrets file
-echo "2. Creating test secrets..."
-cat > ~/.secrets << 'EOF'
+# Create mock secrets file (skip if already mounted)
+echo "2. Setting up secrets..."
+if [[ ! -f ~/.secrets ]]; then
+  cat > ~/.secrets << 'EOF'
 export CLAUDE_CODE_OAUTH_TOKEN="test-token-not-real"
 export HYPERBROWSER_API_KEY="test-key"
 export OP_SERVICE_ACCOUNT_TOKEN="test-token"
 EOF
-chmod 600 ~/.secrets
+  chmod 600 ~/.secrets
+  echo "   Created mock ~/.secrets"
+else
+  echo "   Using existing ~/.secrets"
+fi
 
 # Run install (skip brew)
 echo ""
@@ -82,6 +87,14 @@ echo ""
 echo "10. Testing Claude CLI..."
 if claude --version 2>/dev/null; then
   echo "   ✓ Claude CLI works"
+
+  # Test with real token - list MCPs and plugins
+  if [[ "$CLAUDE_CODE_OAUTH_TOKEN" != "test-token-not-real" ]]; then
+    echo ""
+    echo "11. Testing Claude with real token..."
+    echo "   Asking Claude to list MCPs and plugins..."
+    timeout 60 claude -p "list all configured MCP servers and enabled plugins, be brief" --print 2>&1
+  fi
 else
   echo "   ⚠ Claude CLI issue"
 fi
