@@ -16,11 +16,14 @@ WORKDIR /home/testuser
 # Stubs
 RUN mkdir -p ~/.cargo && touch ~/.cargo/env
 
+# Set Claude config directory
+ENV CLAUDE_CONFIG_DIR=/home/testuser/.claude
+
 # Clone and setup dotfiles
 RUN git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles \
     && cd ~/dotfiles && ./install.sh || true
 
-# Copy secrets and configure PAL
+# Copy secrets (credentials come from volume at runtime)
 COPY --chown=testuser:testuser secrets /home/testuser/.secrets
 RUN grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.secrets \
     | sed 's/^export //' > ~/pal-mcp-server/.env \
@@ -37,4 +40,4 @@ COPY --chown=testuser:testuser entrypoint.sh /home/testuser/entrypoint.sh
 RUN chmod +x ~/entrypoint.sh
 
 ENTRYPOINT ["/home/testuser/entrypoint.sh"]
-CMD ["claude"]
+CMD ["claude", "--dangerously-skip-permissions"]
