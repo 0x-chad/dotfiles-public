@@ -73,11 +73,22 @@ if [[ -d "$PAL_DIR" && ! -d "$PAL_DIR/.pal_venv" ]]; then
   echo "Setting up PAL MCP server..."
   python3 -m venv "$PAL_DIR/.pal_venv"
   "$PAL_DIR/.pal_venv/bin/pip" install -q -r "$PAL_DIR/requirements.txt" 2>/dev/null || true
-  # Create .env if it doesn't exist
-  if [[ ! -f "$PAL_DIR/.env" && -f "$PAL_DIR/.env.example" ]]; then
-    cp "$PAL_DIR/.env.example" "$PAL_DIR/.env"
-    echo "  Created $PAL_DIR/.env from example - edit with your API keys"
-  fi
+fi
+
+# Create PAL .env from secrets + PAL config
+if [[ -d "$PAL_DIR" && -f "$HOME/.secrets" ]]; then
+  echo "Configuring PAL MCP server..."
+  # Extract API keys from secrets (strip 'export ' prefix)
+  grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.secrets \
+    | sed 's/^export //' > "$PAL_DIR/.env"
+  # Add PAL-specific config
+  cat >> "$PAL_DIR/.env" << 'EOF'
+OPENROUTER_ALLOWED_MODELS="google/gemini-2.5-pro,openai/gpt-5-1-codex"
+DISABLED_TOOLS=chat,thinkdeep,planner,codereview,precommit,debug,analyze,refactor,testgen,secaudit,docgen,tracer
+DEFAULT_MODEL=auto
+LOG_LEVEL=INFO
+EOF
+  echo "  Created $PAL_DIR/.env from ~/.secrets"
 fi
 
 echo ""
