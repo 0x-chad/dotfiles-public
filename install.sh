@@ -46,13 +46,19 @@ fi
 echo ""
 echo "=== Setting up Claude plugins ==="
 clone_plugin() {
-  local name="$1" repo="$2" dir="$HOME/$name"
+  local name="$1"
+  local repo="$2"
+  local dir="$HOME/$name"
+
+  # Safety check - name must not be empty
+  [[ -z "$name" ]] && echo "Error: plugin name is empty" && return 1
+
   if [[ -d "$dir/.git" ]]; then
     echo "Updating $name..."
     git -C "$dir" pull --ff-only 2>/dev/null || true
   else
-    echo "Cloning $name..."
-    rm -rf "$dir" 2>/dev/null
+    echo "Cloning $name to $dir..."
+    [[ -e "$dir" ]] && rm -rf "$dir"
     git clone "https://github.com/$repo.git" "$dir"
   fi
 }
