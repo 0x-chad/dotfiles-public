@@ -42,11 +42,38 @@ if [[ -d "$DOTFILES_DIR/claude-commands" ]]; then
   echo "Copied claude-commands/ -> ~/.claude/commands/"
 fi
 
-# Claude MCP servers - see claude-mcp.example.json for reference
-# Configure MCPs with: claude mcp add <name> <command>
+# Clone and register Claude plugins
+echo ""
+echo "=== Setting up Claude plugins ==="
+clone_plugin() {
+  local name="$1" repo="$2" dir="$HOME/$name"
+  if [[ -d "$dir" ]]; then
+    echo "Updating $name..."
+    git -C "$dir" pull --ff-only 2>/dev/null || true
+  else
+    echo "Cloning $name..."
+    git clone "https://github.com/$repo.git" "$dir"
+  fi
+}
 
-# Codex CLI config - see codex-config.example.toml for reference
-# Configure with: codex config
+clone_plugin "superpowers" "obra/superpowers"
+clone_plugin "dev-browser-patchright" "sawyerhood/dev-browser"
+
+# Register as local marketplaces (requires claude CLI)
+if command -v claude &>/dev/null; then
+  echo "Registering plugin marketplaces..."
+  claude marketplace add superpowers-local "$HOME/superpowers" 2>/dev/null || true
+  claude marketplace add dev-browser-patchright-marketplace "$HOME/dev-browser-patchright" 2>/dev/null || true
+
+  # Install plugins from settings
+  echo "Installing plugins..."
+  claude plugin install superpowers@superpowers-local 2>/dev/null || true
+  claude plugin install dev-browser@dev-browser-patchright-marketplace 2>/dev/null || true
+else
+  echo "Claude CLI not found. Install it then run:"
+  echo "  claude marketplace add superpowers-local ~/superpowers"
+  echo "  claude marketplace add dev-browser-patchright-marketplace ~/dev-browser-patchright"
+fi
 
 # Hushlogin
 if [[ -f "$DOTFILES_DIR/hushlogin" ]]; then
