@@ -47,11 +47,12 @@ echo ""
 echo "=== Setting up Claude plugins ==="
 clone_plugin() {
   local name="$1" repo="$2" dir="$HOME/$name"
-  if [[ -d "$dir" ]]; then
+  if [[ -d "$dir/.git" ]]; then
     echo "Updating $name..."
     git -C "$dir" pull --ff-only 2>/dev/null || true
   else
     echo "Cloning $name..."
+    rm -rf "$dir" 2>/dev/null
     git clone "https://github.com/$repo.git" "$dir"
   fi
 }
