@@ -63,7 +63,7 @@ clone_plugin() {
   fi
 }
 
-clone_plugin "superpowers" "obra/superpowers"
+clone_plugin "superpowers" "0x-chad/superpowers"
 clone_plugin "dev-browser-patchright" "sawyerhood/dev-browser"
 
 echo ""
