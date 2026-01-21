@@ -88,12 +88,16 @@ echo "10. Testing Claude CLI..."
 if claude --version 2>/dev/null; then
   echo "   ✓ Claude CLI works"
 
-  # Test with real token - list MCPs and plugins
+  # Run setup-claude.sh with real token
   if [[ "$CLAUDE_CODE_OAUTH_TOKEN" != "test-token-not-real" ]]; then
     echo ""
-    echo "11. Testing Claude with real token..."
-    echo "   Asking Claude to list MCPs and plugins..."
-    timeout 60 claude -p "list all configured MCP servers and enabled plugins, be brief" --print 2>&1
+    echo "11. Running setup-claude.sh..."
+    cd ~/dotfiles
+    ./setup-claude.sh
+
+    echo ""
+    echo "12. Verifying with Claude..."
+    timeout 60 claude -p "list all configured MCP servers and installed plugins, be brief" --print 2>&1
   fi
 else
   echo "   ⚠ Claude CLI issue"

@@ -30,7 +30,7 @@ register_marketplace() {
 
   if [[ -d "$path" ]]; then
     echo "Registering $name -> $path"
-    claude marketplace add "$name" "$path" 2>/dev/null || echo "  (already registered or failed)"
+    claude plugin marketplace add "$name" "$path" 2>/dev/null || echo "  (already registered or failed)"
   else
     echo "Skipping $name (directory not found: $path)"
   fi
@@ -68,9 +68,8 @@ PAL_DIR="$HOME/pal-mcp-server"
 if [[ -d "$PAL_DIR" ]]; then
   echo "Adding PAL MCP server..."
   claude mcp add pal \
-    "$PAL_DIR/.pal_venv/bin/python" \
-    "$PAL_DIR/server.py" \
     -e "ENV_FILE=$PAL_DIR/.env" \
+    -- "$PAL_DIR/.pal_venv/bin/python" "$PAL_DIR/server.py" \
     2>/dev/null || echo "  (already configured or failed)"
 else
   echo "PAL MCP not found at $PAL_DIR - skipping"
