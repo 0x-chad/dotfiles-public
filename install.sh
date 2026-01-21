@@ -65,6 +65,20 @@ clone_plugin() {
 
 clone_plugin "superpowers" "0x-chad/superpowers"
 clone_plugin "dev-browser-patchright" "0x-chad/dev-browser-patchright"
+clone_plugin "pal-mcp-server" "BeehiveInnovations/pal-mcp-server"
+
+# Setup PAL MCP server (requires Python venv)
+PAL_DIR="$HOME/pal-mcp-server"
+if [[ -d "$PAL_DIR" && ! -d "$PAL_DIR/.pal_venv" ]]; then
+  echo "Setting up PAL MCP server..."
+  python3 -m venv "$PAL_DIR/.pal_venv"
+  "$PAL_DIR/.pal_venv/bin/pip" install -q -r "$PAL_DIR/requirements.txt" 2>/dev/null || true
+  # Create .env if it doesn't exist
+  if [[ ! -f "$PAL_DIR/.env" && -f "$PAL_DIR/.env.example" ]]; then
+    cp "$PAL_DIR/.env.example" "$PAL_DIR/.env"
+    echo "  Created $PAL_DIR/.env from example - edit with your API keys"
+  fi
+fi
 
 echo ""
 echo "Plugin repos cloned. After 'claude login', run:"
