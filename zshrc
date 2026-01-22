@@ -43,6 +43,7 @@ alias claude-fast='ccr code --dangerously-skip-permissions "$@"'
 alias python=python3
 alias pip=pip3
 alias claude-container='docker run -it --rm -v claude-creds:/home/testuser/.claude claude-dev'
+alias cc='docker run -it --rm -v claude-creds:/home/testuser/.claude claude-dev'
 
 ### --- Claude Code update helper (prevents ENOTEMPTY errors) ---
 update-claude() {
