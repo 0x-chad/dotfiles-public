@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     libcups2 libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 \
     libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 \
     libcairo2 libdrm2 libxshmfence1 \
+    # noVNC and virtual display
+    xvfb x11vnc novnc fluxbox \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Claude CLI
