@@ -40,6 +40,11 @@ RUN grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.sec
 # Register plugins and MCP (requires auth token from secrets)
 RUN . ~/.secrets && ~/dotfiles/setup-claude.sh
 
+# Pre-install dev-browser dependencies and Chromium for fast startup
+RUN cd ~/.claude/plugins/cache/dev-browser-marketplace/dev-browser/*/skills/dev-browser \
+    && npm install \
+    && npx playwright install chromium
+
 # Entrypoint sources secrets then runs command
 COPY --chown=testuser:testuser entrypoint.sh /home/testuser/entrypoint.sh
 RUN chmod +x ~/entrypoint.sh
