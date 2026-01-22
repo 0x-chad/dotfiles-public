@@ -14,7 +14,7 @@ if [[ "$NOVNC" == "1" ]]; then
   sleep 1
   fluxbox &
   x11vnc -display :99 -forever -shared -rfbport 5900 -bg -nopw -q
-  /usr/share/novnc/utils/launch.sh --listen 6080 --vnc localhost:5900 &
+  /usr/share/novnc/utils/novnc_proxy --listen 6080 --vnc localhost:5900 &
   echo "noVNC running at http://localhost:6080"
 fi
 

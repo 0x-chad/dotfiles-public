@@ -23,8 +23,9 @@ WORKDIR /home/testuser
 # Stubs
 RUN mkdir -p ~/.cargo && touch ~/.cargo/env
 
-# Set Claude config directory
+# Set Claude config directory and display (for noVNC mode)
 ENV CLAUDE_CONFIG_DIR=/home/testuser/.claude
+ENV DISPLAY=:99
 
 # Clone and setup dotfiles
 RUN git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles \
