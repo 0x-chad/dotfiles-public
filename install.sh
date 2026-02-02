@@ -28,16 +28,16 @@ symlink_file "zshrc" ".zshrc"
 symlink_file "zshenv" ".zshenv"
 symlink_file "tmux.conf" ".tmux.conf"
 
-# User scripts (bin/ -> ~/scripts/)
+# User scripts (bin/ -> ~/bin/)
 if [[ -d "$DOTFILES_DIR/bin" ]]; then
-  mkdir -p ~/scripts
+  mkdir -p ~/bin
   for script in "$DOTFILES_DIR/bin/"*; do
     [[ -f "$script" ]] || continue
     name="$(basename "$script")"
-    target="$HOME/scripts/$name"
+    target="$HOME/bin/$name"
     [[ -L "$target" ]] && rm "$target"
     ln -s "$script" "$target"
-    echo "Linking bin/$name -> ~/scripts/$name"
+    echo "Linking bin/$name -> ~/bin/$name"
   done
 fi
 

@@ -41,7 +41,7 @@ After install:
 ## Layout
 
 ```
-bin/                  -> ~/scripts/     # User scripts (in PATH)
+bin/                  -> ~/bin/         # User scripts (in PATH)
   t                                     # tmux session manager
 claude/               -> ~/.claude/     # Claude Code config
   commands/                             # Slash commands

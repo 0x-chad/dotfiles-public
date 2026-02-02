@@ -13,7 +13,7 @@ if [[ -o login ]]; then
 fi
 
 ### --- Common PATH & tools (safe in every shell) ---
-export PATH="$PATH:$HOME/scripts"
+export PATH="$PATH:$HOME/bin"
 
 # Go
 export GOPATH="$HOME/go"
