@@ -2,7 +2,10 @@
 
 ![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/header.png)
 
-Zsh, tmux, and Claude Code configuration for macOS. Includes tmux project management, workmux integration, and curated Homebrew packages.
+- **Zsh** - Clean prompt, history sharing, PATH setup for dev tools
+- **tmux** - `Ctrl+Space` prefix, project sessions, workmux integration
+- **Claude Code** - Plugins, MCP servers, slash commands, dev container
+- **Brewfile** - Curated packages for CLI development
 
 ## Install
 
