@@ -6,7 +6,6 @@
   - Minimal prompt with username and directory
   - Shared history across sessions (100k lines)
   - PATH setup for pyenv, fnm, Go, Rust, Foundry
-  - `update-claude` helper for clean reinstalls
 - **tmux**
   - `Ctrl+Space` prefix (easier than `Ctrl+b`)
   - `t` command for named project sessions
