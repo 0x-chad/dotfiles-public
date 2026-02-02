@@ -29,17 +29,17 @@ symlink_file "zshenv" ".zshenv"
 symlink_file "tmux.conf" ".tmux.conf"
 
 # Claude settings
-if [[ -f "$DOTFILES_DIR/claude-settings.json" ]]; then
+if [[ -f "$DOTFILES_DIR/claude/settings.json" ]]; then
   mkdir -p ~/.claude
-  cp "$DOTFILES_DIR/claude-settings.json" ~/.claude/settings.json
-  echo "Copied claude-settings.json -> ~/.claude/settings.json"
+  cp "$DOTFILES_DIR/claude/settings.json" ~/.claude/settings.json
+  echo "Copied claude/settings.json -> ~/.claude/settings.json"
 fi
 
 # Claude slash commands
-if [[ -d "$DOTFILES_DIR/claude-commands" ]]; then
+if [[ -d "$DOTFILES_DIR/claude/commands" ]]; then
   mkdir -p ~/.claude/commands
-  cp "$DOTFILES_DIR/claude-commands/"*.md ~/.claude/commands/ 2>/dev/null
-  echo "Copied claude-commands/ -> ~/.claude/commands/"
+  cp "$DOTFILES_DIR/claude/commands/"*.md ~/.claude/commands/ 2>/dev/null
+  echo "Copied claude/commands/ -> ~/.claude/commands/"
 fi
 
 # Clone and register Claude plugins
@@ -93,7 +93,7 @@ fi
 
 echo ""
 echo "Plugin repos cloned. After 'claude login', run:"
-echo "  ./setup-claude.sh"
+echo "  ./claude/setup.sh"
 
 # Hushlogin
 if [[ -f "$DOTFILES_DIR/hushlogin" ]]; then
@@ -118,4 +118,4 @@ echo "Next steps:"
 echo "  1. Copy secrets.example to ~/.secrets and fill in your values"
 echo "  2. Run 'source ~/.zshrc' to reload shell config"
 echo "  3. Run 'claude login' to authenticate"
-echo "  4. Run './setup-claude.sh' to install plugins and configure MCPs"
+echo "  4. Run './claude/setup.sh' to install plugins and configure MCPs"
