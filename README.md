@@ -2,10 +2,28 @@
 
 ![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/header.png)
 
-- **Zsh** - Clean prompt, history sharing, PATH setup for dev tools
-- **tmux** - `Ctrl+Space` prefix, project sessions, workmux integration
-- **Claude Code** - Plugins, MCP servers, slash commands, dev container
-- **Brewfile** - Curated packages for CLI development
+- **Zsh**
+  - Minimal prompt with username and directory
+  - Shared history across sessions (100k lines)
+  - PATH setup for pyenv, fnm, Go, Rust, Foundry
+  - `update-claude` helper for clean reinstalls
+- **tmux**
+  - `Ctrl+Space` prefix (easier than `Ctrl+b`)
+  - `t` command for named project sessions
+  - Workmux dashboard via `Ctrl+Space f`
+  - Auto-start tmux on new terminal tabs
+- **Claude Code**
+  - Plugins: superpowers, frontend-design, dev-browser, workmux-status, image-sanitizer, ralph-wiggum
+  - Commands: commit, clean, precommit, consensus, learn, better-prompt
+  - MCP servers: PAL, Nansen, mobile-mcp
+  - Dev container with noVNC for browser automation
+- **Brewfile**
+  - Terminal: tmux, mosh, fzf, jq
+  - Git: gh CLI, git-lfs
+  - Languages: fnm (Node), pyenv (Python)
+  - DevOps: terraform, kubectl, helm, minikube
+  - Workflow: workmux, yabai (tiling WM)
+  - Apps: 1password-cli, maccy (clipboard), hiddenbar
 
 ## Install
 
