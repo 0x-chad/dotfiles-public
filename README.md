@@ -24,10 +24,10 @@ claude/               -> ~/.claude/     # Claude Code config
   container/                            # Dev container (Dockerfile, build/run scripts)
   settings.json                         # Claude settings
   setup.sh                              # Post-login plugin/MCP setup
-Brewfile                                # Homebrew packages
-install.sh                              # Main install script
 macos-defaults.sh                       # macOS system preferences
 test-install.sh                         # Installation test
+Brewfile                                # Homebrew packages
+install.sh                              # Main install script
 secrets.example                         # Template for ~/.secrets
 tmux.conf             -> ~/.tmux.conf
 zshenv                -> ~/.zshenv
