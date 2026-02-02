@@ -1,6 +1,6 @@
 # dotfiles
 
-![header](header.png)
+![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/header.png)
 
 Zsh, tmux, and Claude Code configuration for macOS. Includes tmux project management, workmux integration, and curated Homebrew packages.
 
