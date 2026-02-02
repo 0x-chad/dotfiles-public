@@ -1,5 +1,7 @@
 # dotfiles
 
+![header](header.png)
+
 Zsh, tmux, and Claude Code configuration for macOS. Includes tmux project management, workmux integration, and curated Homebrew packages.
 
 ## Install
