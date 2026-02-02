@@ -42,19 +42,6 @@ alias claude='claude --dangerously-skip-permissions "$@"'
 alias claude-fast='ccr code --dangerously-skip-permissions "$@"'
 alias python=python3
 alias pip=pip3
-alias claude-container='docker run -it --rm -v claude-creds:/home/testuser/.claude claude-dev'
-alias cc='claude-container'
-
-# Claude container with noVNC (auto-assigns port, prints URL)
-ccv() {
-  local port=${1:-0}  # 0 = auto-assign
-  local container_id
-  container_id=$(docker run -d --rm -v claude-creds:/home/testuser/.claude -e NOVNC=1 -e DISPLAY=:99 -p ${port}:6080 claude-dev sleep infinity)
-  local assigned_port=$(docker port "$container_id" 6080 | cut -d: -f2)
-  echo "noVNC: http://localhost:${assigned_port}"
-  docker exec -it -e DISPLAY=:99 "$container_id" claude --dangerously-skip-permissions
-  docker stop "$container_id" >/dev/null
-}
 
 ### --- Claude Code update helper (prevents ENOTEMPTY errors) ---
 update-claude() {
