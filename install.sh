@@ -95,11 +95,8 @@ echo ""
 echo "Plugin repos cloned. After 'claude login', run:"
 echo "  ./claude/setup.sh"
 
-# Hushlogin
-if [[ -f "$DOTFILES_DIR/hushlogin" ]]; then
-  cp "$DOTFILES_DIR/hushlogin" ~/.hushlogin
-  echo "Copied hushlogin -> ~/.hushlogin"
-fi
+# Hushlogin (suppress "Last login" message)
+touch ~/.hushlogin
 
 # Homebrew packages
 echo ""
