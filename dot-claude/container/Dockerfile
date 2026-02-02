@@ -41,7 +41,7 @@ RUN grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.sec
     && echo 'LOG_LEVEL=INFO' >> ~/pal-mcp-server/.env
 
 # Register plugins and MCP (requires auth token from secrets)
-RUN . ~/.secrets && ~/dotfiles/claude/setup.sh
+RUN . ~/.secrets && ~/dotfiles/dot-claude/setup.sh
 
 # Pre-install dev-browser dependencies and Chromium for fast startup
 RUN cd ~/.claude/plugins/cache/dev-browser-marketplace/dev-browser/*/skills/dev-browser \
