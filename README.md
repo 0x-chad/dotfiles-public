@@ -37,12 +37,12 @@ zshrc                 -> ~/.zshrc
 
 ## Commands
 
-**t** - tmux session manager
+**t** - tmux project manager
 ```bash
-t              # list sessions
-t <name>       # attach or create session
-t a            # reattach to last session
-t clean        # remove unattached numbered sessions
+t              # list projects
+t <name>       # attach or create project
+t a            # reattach to last project
+t clean        # remove unattached numbered projects
 ```
 
 ## Keybindings (tmux)
