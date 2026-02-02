@@ -43,20 +43,6 @@ alias claude-fast='ccr code --dangerously-skip-permissions "$@"'
 alias python=python3
 alias pip=pip3
 
-### --- Claude Code update helper (prevents ENOTEMPTY errors) ---
-update-claude() {
-  local node_modules="$(npm root -g)"
-  local pkg_dir="$node_modules/@anthropic-ai/claude-code"
-  local temp_dirs="$node_modules/@anthropic-ai/.claude-code-"*
-
-  echo "Cleaning up any leftover directories..."
-  [[ -d "$pkg_dir" ]] && rm -rf "$pkg_dir"
-  rm -rf $~temp_dirs 2>/dev/null
-
-  echo "Installing claude-code..."
-  npm i -g @anthropic-ai/claude-code
-}
-
 ### --- pyenv (interactive shell part) ---
 command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
 
