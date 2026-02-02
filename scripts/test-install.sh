@@ -91,9 +91,9 @@ if claude --version 2>/dev/null; then
   # Run setup-claude.sh with real token
   if [[ "$CLAUDE_CODE_OAUTH_TOKEN" != "test-token-not-real" ]]; then
     echo ""
-    echo "11. Running setup-claude.sh..."
+    echo "11. Running claude/setup.sh..."
     cd ~/dotfiles
-    ./setup-claude.sh
+    ./claude/setup.sh
 
     echo ""
     echo "12. Verifying with Claude..."
