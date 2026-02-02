@@ -53,5 +53,5 @@ t clean        # remove unattached numbered projects
 | `Ctrl+t` | New window |
 | `Ctrl+Left/Right` | Switch windows |
 | `Ctrl+;` | Toggle split pane |
-| `prefix + f` | Workmux dashboard |
-| `prefix + d` | Detach |
+| `Ctrl+Space f` | Workmux dashboard |
+| `Ctrl+Space d` | Detach |
