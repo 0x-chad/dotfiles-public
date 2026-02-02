@@ -103,39 +103,6 @@ if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]]; then
   fi
 fi
 
-# Helper: clean unattached numbered tmux sessions, returns count
-_tmux_clean_numbered() {
-  local deleted=0
-  for name in $(tmux list-sessions -F '#{session_name}' 2>/dev/null); do
-    [[ ! "$name" =~ ^[0-9]+$ ]] && continue
-    [[ "$(tmux display-message -t "$name" -p '#{session_attached}')" == "1" ]] && continue
-    tmux kill-session -t "$name" 2>/dev/null && ((deleted++))
-  done
-  echo $deleted
-}
-
-# t() - Attach or switch to named tmux session
-# "t" alone lists sessions, "t <name>" attaches/switches, "t clean" deletes unattached numbered sessions
-t() {
-  local session="${1:-}"
-  if [[ -z "$session" ]]; then
-    _tmux_clean_numbered >/dev/null
-    tmux ls
-  elif [[ "$session" == "clean" ]]; then
-    echo "Deleted $(_tmux_clean_numbered) session(s)"
-  else
-    if [[ -n "$TMUX" ]]; then
-      if ! tmux has-session -t "$session" 2>/dev/null; then
-        tmux new-session -ds "$session" -n main
-      fi
-      tmux switch-client -t "$session"
-      _tmux_clean_numbered >/dev/null
-    else
-      tmux new-session -As "$session" -n main
-    fi
-  fi
-}
-
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 

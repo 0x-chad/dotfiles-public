@@ -28,6 +28,19 @@ symlink_file "zshrc" ".zshrc"
 symlink_file "zshenv" ".zshenv"
 symlink_file "tmux.conf" ".tmux.conf"
 
+# User scripts (bin/ -> ~/scripts/)
+if [[ -d "$DOTFILES_DIR/bin" ]]; then
+  mkdir -p ~/scripts
+  for script in "$DOTFILES_DIR/bin/"*; do
+    [[ -f "$script" ]] || continue
+    name="$(basename "$script")"
+    target="$HOME/scripts/$name"
+    [[ -L "$target" ]] && rm "$target"
+    ln -s "$script" "$target"
+    echo "Linking bin/$name -> ~/scripts/$name"
+  done
+fi
+
 # Claude settings
 if [[ -f "$DOTFILES_DIR/claude/settings.json" ]]; then
   mkdir -p ~/.claude
