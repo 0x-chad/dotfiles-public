@@ -2,6 +2,8 @@
 
 ![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/unnamed.jpg)
 
+![demo](demo.gif)
+
 ## Dotfiles
 - **Zsh**
   - Minimal prompt with username and directory
