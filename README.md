@@ -1,7 +1,8 @@
-# dotfiles
+# My Setup
 
 ![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/header.png)
 
+## Dotfiles
 - **Zsh**
   - Minimal prompt with username and directory
   - Shared history across sessions (100k lines)
