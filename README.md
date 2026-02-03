@@ -2,7 +2,7 @@
 
 ![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/unnamed.jpg)
 
-![demo](demo.gif)
+<video src="https://github.com/0x-chad/dotfiles-public/releases/download/demo-video/demo.mp4" controls width="100%"></video>
 
 ## Dotfiles
 - **Zsh**
