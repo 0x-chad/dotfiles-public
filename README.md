@@ -77,5 +77,6 @@ t clean        # remove unattached numbered projects
 | `Ctrl+r` | Rename window |
 | `Ctrl+Left/Right` | Switch windows |
 | `Ctrl+;` | Toggle split pane |
+| `Ctrl+Space s` | Session picker |
 | `Ctrl+Space f` | Workmux dashboard |
 | `Ctrl+Space d` | Detach |
