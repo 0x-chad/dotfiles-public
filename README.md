@@ -1,6 +1,6 @@
 # My Setup
 
-![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/header.png)
+![header](https://github.com/0x-chad/dotfiles-public/releases/download/v1.0/unnamed.jpg)
 
 ## Dotfiles
 - **Zsh**
