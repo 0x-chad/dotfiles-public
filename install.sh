@@ -28,18 +28,20 @@ symlink_file "zshrc" ".zshrc"
 symlink_file "zshenv" ".zshenv"
 symlink_file "tmux.conf" ".tmux.conf"
 
-# User scripts (bin/ -> ~/bin/)
-if [[ -d "$DOTFILES_DIR/bin" ]]; then
-  mkdir -p ~/bin
-  for script in "$DOTFILES_DIR/bin/"*; do
-    [[ -f "$script" ]] || continue
-    name="$(basename "$script")"
-    target="$HOME/bin/$name"
-    [[ -L "$target" ]] && rm "$target"
-    ln -s "$script" "$target"
-    echo "Linking bin/$name -> ~/bin/$name"
-  done
-fi
+# User scripts (bin/ -> ~/bin/, scripts/ -> ~/scripts/)
+for dir in bin scripts; do
+  if [[ -d "$DOTFILES_DIR/$dir" ]]; then
+    mkdir -p ~/$dir
+    for script in "$DOTFILES_DIR/$dir/"*; do
+      [[ -f "$script" ]] || continue
+      name="$(basename "$script")"
+      target="$HOME/$dir/$name"
+      [[ -L "$target" ]] && rm "$target"
+      ln -s "$script" "$target"
+      echo "Linking $dir/$name -> ~/$dir/$name"
+    done
+  fi
+done
 
 # Claude settings
 if [[ -f "$DOTFILES_DIR/claude/settings.json" ]]; then
@@ -119,6 +121,19 @@ if command -v brew &>/dev/null; then
 else
   echo "Homebrew not installed. Install from https://brew.sh then run:"
   echo "  brew bundle --file=$DOTFILES_DIR/Brewfile"
+fi
+
+# tmux plugin manager (tpm)
+echo ""
+echo "=== Setting up tmux plugins ==="
+TPM_DIR="$HOME/.tmux/plugins/tpm"
+if [[ -d "$TPM_DIR/.git" ]]; then
+  echo "tpm already installed"
+else
+  echo "Cloning tpm..."
+  mkdir -p "$HOME/.tmux/plugins"
+  git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
+  echo "tpm installed. Run 'prefix + I' inside tmux to install plugins."
 fi
 
 echo ""

@@ -13,7 +13,7 @@ if [[ -o login ]]; then
 fi
 
 ### --- Common PATH & tools (safe in every shell) ---
-export PATH="$PATH:$HOME/bin"
+export PATH="$PATH:$HOME/bin:$HOME/scripts"
 
 # Go
 export GOPATH="$HOME/go"
@@ -37,9 +37,9 @@ autoload -U colors && colors
 PROMPT="%F{magenta}%n@local:%1~ $ %f"
 
 ### --- Aliases ---
-alias codex='codex --dangerously-bypass-approvals-and-sandbox "$@"'
-alias claude='claude --dangerously-skip-permissions "$@"'
-alias claude-fast='ccr code --dangerously-skip-permissions "$@"'
+alias codex='codex --dangerously-bypass-approvals-and-sandbox'
+alias claude='claude --dangerously-skip-permissions --chrome'
+alias claude-fast='ccr code --dangerously-skip-permissions'
 alias python=python3
 alias pip=pip3
 
