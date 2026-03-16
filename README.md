@@ -19,9 +19,10 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Workmux dashboard via `Ctrl+Space f`
   - Auto-start tmux on new terminal tabs
 - **Claude Code**
-  - Plugins: superpowers, frontend-design, dev-browser, workmux-status, image-sanitizer, ralph-wiggum
+  - Plugins: superpowers, frontend-design, workmux-status, image-sanitizer, ralph-wiggum
+  - Skills: agent-browser
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
-  - MCP servers: PAL, Nansen, mobile-mcp
+  - MCP servers: PAL
   - Dev container with noVNC for browser automation
 - **Brewfile**
   - Terminal: tmux, mosh, fzf, jq

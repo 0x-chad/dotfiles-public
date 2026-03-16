@@ -74,7 +74,7 @@ ls ~/.claude/commands/*.md 2>/dev/null | wc -l | xargs -I{} echo "   ✓ {} slas
 # Check plugin repos cloned
 echo ""
 echo "9. Checking plugin repos..."
-for dir in superpowers dev-browser-patchright; do
+for dir in superpowers; do
   if [[ -d ~/$dir/.git ]]; then
     echo "   ✓ ~/$dir cloned"
   else

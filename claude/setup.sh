@@ -30,11 +30,8 @@ add_marketplace() {
   claude plugin marketplace add "$source" 2>&1 | grep -E "(Successfully|already|Failed)" || true
 }
 
-# Local marketplaces (from cloned repos)
-add_marketplace "$HOME/superpowers"
-add_marketplace "$HOME/dev-browser-patchright"
-
 # Remote marketplaces (GitHub repos)
+add_marketplace "0x-chad/superpowers"
 add_marketplace "anthropics/claude-code"
 add_marketplace "raine/workmux"
 add_marketplace "MussaCharles/claude-code-image-sanitizer"
@@ -49,15 +46,20 @@ install_plugin() {
   claude plugin install "$plugin" 2>&1 | grep -E "(Successfully|already|Failed)" || true
 }
 
-# Local plugins (marketplace names are auto-generated from plugin.json)
-install_plugin "superpowers@superpowers-dev"
-install_plugin "dev-browser@dev-browser-marketplace"
-
 # Remote marketplace plugins
+install_plugin "superpowers@superpowers-dev"
 install_plugin "frontend-design@claude-code-plugins"
 install_plugin "ralph-wiggum@claude-code-plugins"
 install_plugin "workmux-status@workmux"
 install_plugin "image-sanitizer@image-sanitizer-marketplace"
+echo ""
+
+# Install skills
+echo "=== Installing Skills ==="
+echo "Installing agent-browser..."
+npm install -g agent-browser 2>&1 | tail -1 || true
+agent-browser install 2>&1 | tail -1 || true
+npx skills add vercel-labs/agent-browser 2>&1 | tail -1 || true
 echo ""
 
 # Setup MCP servers

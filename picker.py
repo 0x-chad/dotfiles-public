@@ -16,7 +16,7 @@ COMPONENTS = [
     ("scripts",  "Scripts & bin",     "~/scripts/ and ~/bin/ utilities",      True,  True),
     ("homebrew", "Homebrew packages", "CLI tools, casks (macOS only)",        True,  False),
     ("claude",   "Claude settings",   "settings.json, slash commands",        True,  False),
-    ("plugins",  "Claude plugins",    "superpowers, dev-browser, PAL MCP",    True,  False),
+    ("plugins",  "Claude plugins",    "superpowers, agent-browser, PAL MCP",  True,  False),
 ]
 
 is_mac = platform.system() == "Darwin"

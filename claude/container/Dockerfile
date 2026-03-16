@@ -3,7 +3,7 @@ FROM node:20-bookworm
 # Install dependencies (including Playwright/Chromium requirements)
 RUN apt-get update && apt-get install -y \
     zsh git curl jq tmux python3 python3-venv python3-pip \
-    # Chromium dependencies for dev-browser
+    # Chromium dependencies for agent-browser
     libnspr4 libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
     libcups2 libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 \
     libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 \
@@ -43,10 +43,10 @@ RUN grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.sec
 # Register plugins and MCP (requires auth token from secrets)
 RUN . ~/.secrets && ~/dotfiles/claude/setup.sh
 
-# Pre-install dev-browser dependencies and Chromium for fast startup
-RUN cd ~/.claude/plugins/cache/dev-browser-marketplace/dev-browser/*/skills/dev-browser \
-    && npm install \
-    && npx playwright install chromium
+# Pre-install agent-browser and Chrome for fast startup
+RUN npm install -g agent-browser \
+    && agent-browser install \
+    && npx skills add vercel-labs/agent-browser
 
 # Entrypoint sources secrets then runs command
 COPY --chown=testuser:testuser entrypoint.sh /home/testuser/entrypoint.sh

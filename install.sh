@@ -140,8 +140,6 @@ install_claude() {
 install_plugins() {
   echo ""
   echo "=== Claude plugins ==="
-  clone_plugin "superpowers" "0x-chad/superpowers"
-  clone_plugin "dev-browser-patchright" "0x-chad/dev-browser-patchright"
   clone_plugin "pal-mcp-server" "BeehiveInnovations/pal-mcp-server"
 
   # PAL MCP server venv
