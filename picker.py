@@ -12,7 +12,7 @@ import sys
 # (key, label, description, default_mac, default_linux)
 COMPONENTS = [
     ("shell",    "Shell config",      "zshrc, zshenv, hushlogin",            True,  True),
-    ("tmux",     "Tmux + plugins",    "tmux.conf, tpm plugin manager",       True,  True),
+    ("tmux",     "Tmux + plugins",    "tmux.conf, tpm, mosh",                True,  True),
     ("scripts",  "Scripts & bin",     "~/scripts/ and ~/bin/ utilities",      True,  True),
     ("homebrew", "Homebrew packages", "CLI tools, casks (macOS only)",        True,  False),
     ("claude",   "Claude settings",   "settings.json, slash commands",        True,  False),

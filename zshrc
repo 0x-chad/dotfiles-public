@@ -34,7 +34,7 @@ fi
 ### --- Prompt & colors ---
 autoload -U colors && colors
 # %n = username, %1~ = last path segment, %F{color} sets color, %f resets
-PROMPT="%F{magenta}%n@local:%1~ $ %f"
+PROMPT="%F{magenta}%n@%m:%1~ $ %f"
 
 ### --- Aliases ---
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
@@ -47,7 +47,7 @@ alias pip=pip3
 command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
 
 ### --- Node (fnm - fast node manager) ---
-eval "$(fnm env --use-on-cd)"
+command -v fnm >/dev/null 2>&1 && eval "$(fnm env --use-on-cd)"
 
 ### --- History (zsh way) ---
 export HISTFILE="$HOME/.zsh_history"
@@ -66,7 +66,7 @@ alias grep='grep --color=always'
 ### --- Completion & fzf ---
 autoload -Uz compinit && compinit
 if command -v fzf >/dev/null 2>&1; then
-  eval "$(fzf --zsh)"
+  eval "$(fzf --zsh 2>/dev/null)" || source <(fzf --completion zsh 2>/dev/null) || true
 fi
 # If you use fzf-tab for zsh:
 # source ~/fzf-tab-completion/zsh/fzf-zsh-completion.zsh
@@ -84,7 +84,7 @@ fi
 # Auto-start tmux for new terminal tabs/SSH sessions
 # Each new tab gets its own unique session (numbered 0, 1, 2, etc.)
 if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]]; then
-  if [[ "$TERM_PROGRAM" == "iTerm.app" || "$TERM_PROGRAM" == "Apple_Terminal" || -n "$SSH_CONNECTION" ]]; then
+  if [[ -n "$TERM_PROGRAM" || -n "$SSH_CONNECTION" ]]; then
     tmux new-session
   fi
 fi

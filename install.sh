@@ -76,6 +76,20 @@ install_tmux() {
     git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
     echo "  tpm installed — run 'prefix + I' inside tmux to install plugins"
   fi
+
+  # Install mosh for persistent remote connections
+  if ! command -v mosh &>/dev/null; then
+    echo "  Installing mosh..."
+    if command -v brew &>/dev/null; then
+      brew install mosh
+    elif command -v apt-get &>/dev/null; then
+      sudo apt-get install -y -qq mosh
+    else
+      echo "  Skipping mosh (no supported package manager found)"
+    fi
+  else
+    echo "  mosh already installed"
+  fi
 }
 
 install_scripts() {
