@@ -1,0 +1,34 @@
+# Theme - auto-switches with macOS light/dark mode
+theme = light:iterm-light,dark:iterm-dark
+
+# Font
+font-family = Andale Mono
+font-size = 12
+
+# Window
+window-theme = auto
+background-opacity = 0.98
+
+# Cursor
+cursor-style-blink = false
+
+# Bold
+bold-is-bright = true
+
+# Clipboard (OSC 52 — enables copy/paste through SSH+tmux)
+clipboard-read = allow
+clipboard-write = allow
+
+# Scrollback (0 = unlimited)
+scrollback-limit = 0
+
+# Option key sends Alt/Meta (needed for tmux Option+Space prefix, Option+arrows)
+macos-option-as-alt = true
+
+# Override Option+arrows to send proper M-Left/M-Right (instead of ESC b/f)
+keybind = alt+left=text:\x1b[1;3D
+keybind = alt+right=text:\x1b[1;3C
+
+# Window size
+window-width = 122
+window-height = 34
