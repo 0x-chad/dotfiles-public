@@ -12,12 +12,19 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 - **Zsh**
   - Minimal prompt with username and directory
   - Shared history across sessions (100k lines)
-  - PATH setup for pyenv, fnm, Go, Rust, Foundry
+  - PATH setup for pyenv, fnm, Go, Rust, Foundry, and `~/.local/bin`
+  - `gws-work` / `gws-personal` aliases for separate Google Workspace CLI profiles
 - **tmux**
-  - `Ctrl+Space` prefix (easier than `Ctrl+b`)
+  - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
   - `t` command for named project sessions
-  - Workmux dashboard via `Ctrl+Space f`
-  - Auto-start tmux on new terminal tabs
+  - Workmux dashboard via `Option+Space f`
+  - Auto-start tmux on new terminal tabs and SSH sessions with a real TTY
+  - Nested tmux pass-through with `Option+p`
+  - Status bar toggle with `Option+Space p`
+  - Fast Shift+wheel scrolling and `Option+Space l` scrollback clear
+- **Terminal**
+  - Ghostty config
+  - iTerm2 Option-key setup for the tmux prefix
 - **Claude Code**
   - Plugins: superpowers, frontend-design, workmux-status, image-sanitizer, ralph-wiggum
   - Skills: agent-browser
@@ -40,6 +47,14 @@ cd ~/dotfiles
 ./install.sh
 ```
 
+Install modes:
+
+```bash
+./install.sh basic  # shell, tmux, scripts; good for Linux servers
+./install.sh full   # basic + terminal config, Homebrew, Claude config/plugins
+./install.sh pick   # interactive component picker
+```
+
 After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
 2. Run `source ~/.zshrc`
@@ -56,6 +71,7 @@ claude/               -> ~/.claude/     # Claude Code config
   container/                            # Dev container (Dockerfile, build/run scripts)
   settings.json                         # Claude settings
   setup.sh                              # Post-login plugin/MCP setup
+ghostty/config        -> ~/.config/ghostty/config
 macos-defaults.sh                       # macOS system preferences
 test-install.sh                         # Installation test
 Brewfile                                # Homebrew packages
@@ -80,11 +96,14 @@ t clean        # remove unattached numbered projects
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+Space` | Prefix |
-| `Ctrl+t` | New window |
-| `Ctrl+r` | Rename window |
-| `Ctrl+Left/Right` | Switch windows |
-| `Ctrl+;` | Toggle split pane |
-| `Ctrl+Space s` | Session picker |
-| `Ctrl+Space f` | Workmux dashboard |
-| `Ctrl+Space d` | Detach |
+| `Option+Space` | Prefix |
+| `Option+Space t` | New window |
+| `Option+Space r` | Rename window |
+| `Option+Left/Right` | Switch windows |
+| `Option+Space ;` | Toggle split pane |
+| `Option+Space k` | Session picker |
+| `Option+Space f` | Workmux dashboard |
+| `Option+Space p` | Toggle status bar |
+| `Option+Space l` | Clear screen and scrollback |
+| `Option+Space d` | Detach |
+| `Option+p` | Toggle nested tmux pass-through |

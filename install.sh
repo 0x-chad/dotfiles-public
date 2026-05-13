@@ -234,7 +234,7 @@ case "$MODE" in
       echo ""
       echo "Install modes:"
       echo "  1) basic  — shell, tmux, scripts, tpm"
-      echo "  2) full   — basic + Homebrew packages, Claude plugins, MCP servers"
+      echo "  2) full   — basic + terminal config, Homebrew packages, Claude plugins, MCP servers"
       echo ""
       read -rp "Choose [1/2] (default: $default): " choice
       case "$choice" in
