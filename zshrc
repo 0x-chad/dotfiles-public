@@ -85,7 +85,7 @@ fi
 
 # Auto-start tmux for new terminal tabs/SSH sessions
 # Each new tab gets its own unique session (numbered 0, 1, 2, etc.)
-if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]]; then
+if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]] && [[ -t 0 ]] && [[ -t 1 ]]; then
   if [[ -n "$TERM_PROGRAM" || -n "$SSH_CONNECTION" ]]; then
     tmux new-session
   fi
