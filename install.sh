@@ -110,6 +110,36 @@ install_scripts() {
   done
 }
 
+install_terminal() {
+  echo ""
+  echo "=== Terminal config (Option key for tmux prefix) ==="
+
+  # Ghostty
+  if [[ -f "$DOTFILES_DIR/ghostty/config" ]]; then
+    mkdir -p ~/.config/ghostty
+    if [[ -e ~/.config/ghostty/config && ! -L ~/.config/ghostty/config ]]; then
+      echo "  Backing up ~/.config/ghostty/config -> ~/.config/ghostty/config.backup"
+      mv ~/.config/ghostty/config ~/.config/ghostty/config.backup
+    fi
+    [[ -L ~/.config/ghostty/config ]] && rm ~/.config/ghostty/config
+    ln -s "$DOTFILES_DIR/ghostty/config" ~/.config/ghostty/config
+    echo "  Linked ghostty/config -> ~/.config/ghostty/config"
+  fi
+
+  # iTerm2 — set Left Option key to Esc+ for all profiles
+  local plist="$HOME/Library/Preferences/com.googlecode.iterm2.plist"
+  if [[ -f "$plist" ]]; then
+    local i=0
+    while /usr/libexec/PlistBuddy -c "Print :New\ Bookmarks:$i:Name" "$plist" &>/dev/null; do
+      /usr/libexec/PlistBuddy -c "Set :New\ Bookmarks:$i:Option\ Key\ Sends 2" "$plist" 2>/dev/null
+      ((i++))
+    done
+    echo "  Set iTerm2 Left Option key to Esc+ for $i profile(s)"
+  else
+    echo "  iTerm2 not found, skipping"
+  fi
+}
+
 install_homebrew() {
   echo ""
   echo "=== Homebrew packages ==="
@@ -174,7 +204,7 @@ case "$MODE" in
     COMPONENTS=(shell tmux scripts)
     ;;
   full)
-    COMPONENTS=(shell tmux scripts homebrew claude plugins)
+    COMPONENTS=(shell tmux scripts terminal homebrew claude plugins)
     ;;
   *)
     # Try interactive picker (requires Python 3 + curses)
@@ -209,10 +239,10 @@ case "$MODE" in
       read -rp "Choose [1/2] (default: $default): " choice
       case "$choice" in
         1|basic)  COMPONENTS=(shell tmux scripts) ;;
-        2|full)   COMPONENTS=(shell tmux scripts homebrew claude plugins) ;;
+        2|full)   COMPONENTS=(shell tmux scripts terminal homebrew claude plugins) ;;
         "")
           if [[ "$default" == "full" ]]; then
-            COMPONENTS=(shell tmux scripts homebrew claude plugins)
+            COMPONENTS=(shell tmux scripts terminal homebrew claude plugins)
           else
             COMPONENTS=(shell tmux scripts)
           fi
@@ -235,6 +265,7 @@ echo "=== Installing: ${COMPONENTS[*]} ==="
 has_component "shell"    && install_shell
 has_component "tmux"     && install_tmux
 has_component "scripts"  && install_scripts
+has_component "terminal" && install_terminal
 has_component "homebrew" && install_homebrew
 has_component "claude"   && install_claude
 has_component "plugins"  && install_plugins

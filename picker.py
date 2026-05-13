@@ -14,6 +14,7 @@ COMPONENTS = [
     ("shell",    "Shell config",      "zshrc, zshenv, hushlogin",            True,  True),
     ("tmux",     "Tmux + plugins",    "tmux.conf, tpm, mosh",                True,  True),
     ("scripts",  "Scripts & bin",     "~/scripts/ and ~/bin/ utilities",      True,  True),
+    ("terminal", "Terminal config",    "Ghostty + iTerm2 Option key (macOS)",  True,  False),
     ("homebrew", "Homebrew packages", "CLI tools, casks (macOS only)",        True,  False),
     ("claude",   "Claude settings",   "settings.json, slash commands",        True,  False),
     ("plugins",  "Claude plugins",    "superpowers, agent-browser, PAL MCP",  True,  False),

@@ -42,6 +42,8 @@ alias claude='claude --dangerously-skip-permissions --chrome'
 alias claude-fast='ccr code --dangerously-skip-permissions'
 alias python=python3
 alias pip=pip3
+alias gws-work='GOOGLE_WORKSPACE_CLI_CONFIG_DIR=$HOME/.config/gws-work gws'
+alias gws-personal='GOOGLE_WORKSPACE_CLI_CONFIG_DIR=$HOME/.config/gws-personal gws'
 
 ### --- pyenv (interactive shell part) ---
 command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
