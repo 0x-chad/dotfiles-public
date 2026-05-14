@@ -67,6 +67,10 @@ install_tmux() {
   echo "=== Tmux + plugins ==="
   symlink_file "tmux.conf" ".tmux.conf"
 
+  # tmux copy bindings use this helper for OSC 52 clipboard writes over SSH/mosh.
+  mkdir -p "$HOME/bin"
+  symlink_file "bin/osc52-copy" "bin/osc52-copy"
+
   TPM_DIR="$HOME/.tmux/plugins/tpm"
   if [[ -d "$TPM_DIR/.git" ]]; then
     echo "  tpm already installed"

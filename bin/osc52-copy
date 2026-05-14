@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+client_tty="${1:-}"
+if [ -z "$client_tty" ] && command -v tmux >/dev/null 2>&1; then
+  client_tty="$(tmux display-message -p '#{client_tty}' 2>/dev/null || true)"
+fi
+
+payload="$(base64 | tr -d '\r\n')"
+[ -n "$payload" ] || exit 0
+
+if [ -n "$client_tty" ] && [ -w "$client_tty" ]; then
+  printf '\033]52;c;%s\a' "$payload" >"$client_tty"
+else
+  printf '\033]52;c;%s\a' "$payload"
+fi
