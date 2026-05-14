@@ -106,6 +106,11 @@ install_scripts() {
         [[ -f "$script" ]] || continue
         name="$(basename "$script")"
         target="$HOME/$dir/$name"
+        if [[ -e "$target" && ! -L "$target" ]]; then
+          backup="$target.backup-$(date +%Y%m%dT%H%M%S)"
+          echo "  Backing up $target -> $backup"
+          mv "$target" "$backup"
+        fi
         [[ -L "$target" ]] && rm "$target"
         ln -s "$script" "$target"
         echo "  Linking $dir/$name -> ~/$dir/$name"
