@@ -12,8 +12,7 @@ if [[ -o login ]]; then
   command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init --path)"
 fi
 
-### --- Common PATH & tools (safe in every shell) ---
-export PATH="$PATH:$HOME/bin:$HOME/scripts"
+### --- Common PATH & tools ---
 
 # Go
 export GOPATH="$HOME/go"
