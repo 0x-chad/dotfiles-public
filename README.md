@@ -19,9 +19,9 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - `t` command for named project sessions
   - Workmux dashboard via `Option+Space f`
   - Auto-start tmux on new terminal tabs and SSH sessions with a real TTY
-  - Nested tmux pass-through with `Option+p`
-  - Status bar toggle with `Option+Space p`
-  - Fast Shift+wheel scrolling and `Option+Space l` scrollback clear
+  - Nested tmux pass-through with `Option+l`
+  - Status bar toggle with `Option+Space l`
+  - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
 - **Terminal**
   - Ghostty config
   - iTerm2 Option-key setup for the tmux prefix
@@ -103,7 +103,7 @@ t clean        # remove unattached numbered projects
 | `Option+Space ;` | Toggle split pane |
 | `Option+Space k` | Session picker |
 | `Option+Space f` | Workmux dashboard |
-| `Option+Space p` | Toggle status bar |
-| `Option+Space l` | Clear screen and scrollback |
+| `Option+Space l` | Toggle status bar |
+| `Option+Space c` | Clear screen and scrollback |
 | `Option+Space d` | Detach |
-| `Option+p` | Toggle nested tmux pass-through |
+| `Option+l` | Toggle nested tmux pass-through |
