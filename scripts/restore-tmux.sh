@@ -6,10 +6,12 @@
 #
 # Usage: ~/scripts/restore-tmux.sh [--dry-run]
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESURRECT_RESTORE="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+restore_status=0
+ai_status=0
 
 resolve_resurrect_dir() {
   local path
@@ -53,22 +55,53 @@ repair_resurrect_files() {
 echo "═══ Restoring tmux state ═══"
 echo ""
 
+if [ -n "${TMUX:-}" ]; then
+  current_session=$(tmux display-message -p '#S' 2>/dev/null || true)
+  echo "NOTE: running from inside tmux${current_session:+ session '$current_session'}."
+  echo "      Existing panes may be preserved by tmux-resurrect; failures will be reported instead of aborting."
+  echo ""
+fi
+
 # Step 1: Restore tmux layout
 echo "── Step 1: tmux layout ──"
 if [ -x "$RESURRECT_RESTORE" ]; then
-  repair_resurrect_files "$(resolve_resurrect_dir)"
+  resurrect_dir="$(resolve_resurrect_dir)"
+  if ! repair_resurrect_files "$resurrect_dir"; then
+    echo "WARNING: resurrect file repair reported an error; continuing"
+  fi
+
   "$RESURRECT_RESTORE"
-  echo "tmux-resurrect restored. Waiting for shells to init..."
-  sleep 3
+  restore_status=$?
+  if [ "$restore_status" -eq 0 ]; then
+    echo "tmux-resurrect restored. Waiting for shells to init..."
+    sleep 3
+  else
+    echo "WARNING: tmux-resurrect exited with status $restore_status; continuing to AI restore"
+  fi
 else
   echo "WARNING: tmux-resurrect not found at $RESURRECT_RESTORE"
   echo "Skipping layout restore. Create tmux sessions manually first."
+  restore_status=127
 fi
 echo ""
 
 # Step 2: Resume AI sessions
 echo "── Step 2: AI sessions ──"
-"$SCRIPTS_DIR/restore-ai-sessions.sh" "$@"
+if [ -x "$SCRIPTS_DIR/restore-ai-sessions.sh" ]; then
+  "$SCRIPTS_DIR/restore-ai-sessions.sh" "$@"
+  ai_status=$?
+  if [ "$ai_status" -ne 0 ]; then
+    echo "WARNING: AI restore exited with status $ai_status"
+  fi
+else
+  echo "WARNING: restore-ai-sessions.sh not found at $SCRIPTS_DIR/restore-ai-sessions.sh"
+  ai_status=127
+fi
 
 echo ""
-echo "═══ Done. ═══"
+if [ "$restore_status" -eq 0 ] && [ "$ai_status" -eq 0 ]; then
+  echo "═══ Done. ═══"
+else
+  echo "═══ Done with warnings. tmux=$restore_status ai=$ai_status ═══"
+  exit 1
+fi
