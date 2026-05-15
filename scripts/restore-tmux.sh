@@ -13,6 +13,23 @@ RESURRECT_RESTORE="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
 restore_status=0
 ai_status=0
 
+ensure_tmux_socket_env() {
+  if [ -n "${TMUX:-}" ]; then
+    return 0
+  fi
+
+  local socket_dir socket_path
+  socket_dir="/tmp/tmux-$(id -u)"
+  socket_path="$socket_dir/default"
+  mkdir -p "$socket_dir"
+  chmod 700 "$socket_dir"
+
+  # tmux-resurrect's restore.sh reads $TMUX to discover the socket for
+  # `tmux -S ... new-session`; provide the default socket when running outside
+  # tmux, such as from ssh or a bootstrap shell.
+  export TMUX="$socket_path,0,0"
+}
+
 resolve_resurrect_dir() {
   local path
   path=$(tmux show-option -gqv @resurrect-dir 2>/dev/null || true)
@@ -60,6 +77,8 @@ if [ -n "${TMUX:-}" ]; then
   echo "NOTE: running from inside tmux${current_session:+ session '$current_session'}."
   echo "      Existing panes may be preserved by tmux-resurrect; failures will be reported instead of aborting."
   echo ""
+else
+  ensure_tmux_socket_env
 fi
 
 # Step 1: Restore tmux layout
