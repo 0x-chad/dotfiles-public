@@ -11,7 +11,15 @@ set -uo pipefail
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESURRECT_RESTORE="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
 restore_status=0
+mosh_status=0
 ai_status=0
+DRY_RUN=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=true ;;
+  esac
+done
 
 ensure_tmux_socket_env() {
   if [ -n "${TMUX:-}" ]; then
@@ -83,7 +91,9 @@ fi
 
 # Step 1: Restore tmux layout
 echo "── Step 1: tmux layout ──"
-if [ -x "$RESURRECT_RESTORE" ]; then
+if [ "$DRY_RUN" = true ]; then
+  echo "(DRY RUN — tmux-resurrect will not be run)"
+elif [ -x "$RESURRECT_RESTORE" ]; then
   resurrect_dir="$(resolve_resurrect_dir)"
   if ! repair_resurrect_files "$resurrect_dir"; then
     echo "WARNING: resurrect file repair reported an error; continuing"
@@ -104,8 +114,22 @@ else
 fi
 echo ""
 
-# Step 2: Resume AI sessions
-echo "── Step 2: AI sessions ──"
+# Step 2: Restore missing mosh sessions
+echo "── Step 2: mosh sessions ──"
+if [ -x "$SCRIPTS_DIR/restore-mosh-sessions.sh" ]; then
+  "$SCRIPTS_DIR/restore-mosh-sessions.sh" "$@"
+  mosh_status=$?
+  if [ "$mosh_status" -ne 0 ]; then
+    echo "WARNING: mosh restore exited with status $mosh_status"
+  fi
+else
+  echo "WARNING: restore-mosh-sessions.sh not found at $SCRIPTS_DIR/restore-mosh-sessions.sh"
+  mosh_status=127
+fi
+echo ""
+
+# Step 3: Resume AI sessions
+echo "── Step 3: AI sessions ──"
 if [ -x "$SCRIPTS_DIR/restore-ai-sessions.sh" ]; then
   "$SCRIPTS_DIR/restore-ai-sessions.sh" "$@"
   ai_status=$?
@@ -118,9 +142,9 @@ else
 fi
 
 echo ""
-if [ "$restore_status" -eq 0 ] && [ "$ai_status" -eq 0 ]; then
+if [ "$restore_status" -eq 0 ] && [ "$mosh_status" -eq 0 ] && [ "$ai_status" -eq 0 ]; then
   echo "═══ Done. ═══"
 else
-  echo "═══ Done with warnings. tmux=$restore_status ai=$ai_status ═══"
+  echo "═══ Done with warnings. tmux=$restore_status mosh=$mosh_status ai=$ai_status ═══"
   exit 1
 fi
