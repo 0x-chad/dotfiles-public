@@ -130,7 +130,17 @@ install_terminal() {
     echo "  Linked config/ghostty/config -> ~/.config/ghostty/config"
   fi
 
-  # iTerm2 — set Left Option key to Esc+ for all profiles
+  # iTerm2 preferences
+  if [[ "$(uname)" == "Darwin" && -f "$DOTFILES_DIR/config/iterm2/com.googlecode.iterm2.plist" ]]; then
+    mkdir -p ~/.iterm2
+    cp "$DOTFILES_DIR/config/iterm2/com.googlecode.iterm2.plist" ~/.iterm2/com.googlecode.iterm2.plist
+    defaults import com.googlecode.iterm2 ~/.iterm2/com.googlecode.iterm2.plist
+    defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
+    defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$HOME/.iterm2"
+    echo "  Copied config/iterm2/ -> ~/.iterm2/ and imported iTerm2 preferences"
+  fi
+
+  # Ensure Left Option key sends Esc+ for all currently installed profiles.
   local plist="$HOME/Library/Preferences/com.googlecode.iterm2.plist"
   if [[ -f "$plist" ]]; then
     local i=0

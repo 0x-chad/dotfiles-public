@@ -72,6 +72,7 @@ config/
     settings.json                       # Claude settings
     setup.sh                            # Post-login plugin/MCP setup
   ghostty/config      -> ~/.config/ghostty/config
+  iterm2/com.googlecode.iterm2.plist    # iTerm2 preferences
   osx/osx-config.sh                     # macOS system preferences
   tmux/tmux.conf      -> ~/.tmux.conf
   zsh/zshenv          -> ~/.zshenv
