@@ -59,27 +59,29 @@ After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
 2. Run `source ~/.zshrc`
 3. Run `claude login`
-4. Run `./claude/setup.sh` to configure plugins and MCPs
+4. Run `./config/claude/setup.sh` to configure plugins and MCPs
 
 ## Layout
 
 ```
-bin/                  -> ~/bin/         # User scripts (in PATH)
+config/
+  brew/Brewfile                         # Homebrew packages
+  claude/             -> ~/.claude/     # Claude Code config
+    commands/                           # Slash commands
+    container/                          # Dev container (Dockerfile, build/run scripts)
+    settings.json                       # Claude settings
+    setup.sh                            # Post-login plugin/MCP setup
+  ghostty/config      -> ~/.config/ghostty/config
+  osx/osx-config.sh                     # macOS system preferences
+  tmux/tmux.conf      -> ~/.tmux.conf
+  zsh/zshenv          -> ~/.zshenv
+  zsh/zshrc           -> ~/.zshrc
+scripts/              -> ~/scripts/     # User scripts (in PATH)
+  osc52-copy                            # tmux clipboard helper
   t                                     # tmux session manager
-claude/               -> ~/.claude/     # Claude Code config
-  commands/                             # Slash commands
-  container/                            # Dev container (Dockerfile, build/run scripts)
-  settings.json                         # Claude settings
-  setup.sh                              # Post-login plugin/MCP setup
-ghostty/config        -> ~/.config/ghostty/config
-macos-defaults.sh                       # macOS system preferences
 test-install.sh                         # Installation test
-Brewfile                                # Homebrew packages
 install.sh                              # Main install script
 secrets.example                         # Template for ~/.secrets
-tmux.conf             -> ~/.tmux.conf
-zshenv                -> ~/.zshenv
-zshrc                 -> ~/.zshrc
 ```
 
 ## Commands

@@ -41,7 +41,7 @@ RUN grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.sec
     && echo 'LOG_LEVEL=INFO' >> ~/pal-mcp-server/.env
 
 # Register plugins and MCP (requires auth token from secrets)
-RUN . ~/.secrets && ~/dotfiles/claude/setup.sh
+RUN . ~/.secrets && ~/dotfiles/config/claude/setup.sh
 
 # Pre-install agent-browser and Chrome for fast startup
 RUN npm install -g agent-browser \

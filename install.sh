@@ -56,8 +56,8 @@ has_component() {
 install_shell() {
   echo ""
   echo "=== Shell config ==="
-  symlink_file "zshrc" ".zshrc"
-  symlink_file "zshenv" ".zshenv"
+  symlink_file "config/zsh/zshrc" ".zshrc"
+  symlink_file "config/zsh/zshenv" ".zshenv"
   touch ~/.hushlogin
   echo "  Created ~/.hushlogin"
 }
@@ -65,11 +65,9 @@ install_shell() {
 install_tmux() {
   echo ""
   echo "=== Tmux + plugins ==="
-  symlink_file "tmux.conf" ".tmux.conf"
-
-  # tmux copy bindings use this helper for OSC 52 clipboard writes over SSH/mosh.
-  mkdir -p "$HOME/bin"
-  symlink_file "bin/osc52-copy" "bin/osc52-copy"
+  symlink_file "config/tmux/tmux.conf" ".tmux.conf"
+  mkdir -p "$HOME/scripts"
+  symlink_file "scripts/osc52-copy" "scripts/osc52-copy"
 
   TPM_DIR="$HOME/.tmux/plugins/tpm"
   if [[ -d "$TPM_DIR/.git" ]]; then
@@ -98,24 +96,21 @@ install_tmux() {
 
 install_scripts() {
   echo ""
-  echo "=== Scripts & bin ==="
-  for dir in bin scripts; do
-    if [[ -d "$DOTFILES_DIR/$dir" ]]; then
-      mkdir -p ~/$dir
-      for script in "$DOTFILES_DIR/$dir/"*; do
-        [[ -f "$script" ]] || continue
-        name="$(basename "$script")"
-        target="$HOME/$dir/$name"
-        if [[ -e "$target" && ! -L "$target" ]]; then
-          backup="$target.backup-$(date +%Y%m%dT%H%M%S)"
-          echo "  Backing up $target -> $backup"
-          mv "$target" "$backup"
-        fi
-        [[ -L "$target" ]] && rm "$target"
-        ln -s "$script" "$target"
-        echo "  Linking $dir/$name -> ~/$dir/$name"
-      done
+  echo "=== Scripts ==="
+  [[ -d "$DOTFILES_DIR/scripts" ]] || return
+  mkdir -p "$HOME/scripts"
+  for script in "$DOTFILES_DIR/scripts/"*; do
+    [[ -f "$script" ]] || continue
+    name="$(basename "$script")"
+    target="$HOME/scripts/$name"
+    if [[ -e "$target" && ! -L "$target" ]]; then
+      backup="$target.backup-$(date +%Y%m%dT%H%M%S)"
+      echo "  Backing up $target -> $backup"
+      mv "$target" "$backup"
     fi
+    [[ -L "$target" ]] && rm "$target"
+    ln -s "$script" "$target"
+    echo "  Linking scripts/$name -> ~/scripts/$name"
   done
 }
 
@@ -124,15 +119,15 @@ install_terminal() {
   echo "=== Terminal config (Option key for tmux prefix) ==="
 
   # Ghostty
-  if [[ -f "$DOTFILES_DIR/ghostty/config" ]]; then
+  if [[ -f "$DOTFILES_DIR/config/ghostty/config" ]]; then
     mkdir -p ~/.config/ghostty
     if [[ -e ~/.config/ghostty/config && ! -L ~/.config/ghostty/config ]]; then
       echo "  Backing up ~/.config/ghostty/config -> ~/.config/ghostty/config.backup"
       mv ~/.config/ghostty/config ~/.config/ghostty/config.backup
     fi
     [[ -L ~/.config/ghostty/config ]] && rm ~/.config/ghostty/config
-    ln -s "$DOTFILES_DIR/ghostty/config" ~/.config/ghostty/config
-    echo "  Linked ghostty/config -> ~/.config/ghostty/config"
+    ln -s "$DOTFILES_DIR/config/ghostty/config" ~/.config/ghostty/config
+    echo "  Linked config/ghostty/config -> ~/.config/ghostty/config"
   fi
 
   # iTerm2 — set Left Option key to Esc+ for all profiles
@@ -153,25 +148,25 @@ install_homebrew() {
   echo ""
   echo "=== Homebrew packages ==="
   if command -v brew &>/dev/null; then
-    [[ -f "$DOTFILES_DIR/Brewfile" ]] && brew bundle --file="$DOTFILES_DIR/Brewfile"
+    [[ -f "$DOTFILES_DIR/config/brew/Brewfile" ]] && brew bundle --file="$DOTFILES_DIR/config/brew/Brewfile"
   else
     echo "  Homebrew not installed. Install from https://brew.sh then run:"
-    echo "    brew bundle --file=$DOTFILES_DIR/Brewfile"
+    echo "    brew bundle --file=$DOTFILES_DIR/config/brew/Brewfile"
   fi
 }
 
 install_claude() {
   echo ""
   echo "=== Claude settings ==="
-  if [[ -f "$DOTFILES_DIR/claude/settings.json" ]]; then
+  if [[ -f "$DOTFILES_DIR/config/claude/settings.json" ]]; then
     mkdir -p ~/.claude
-    cp "$DOTFILES_DIR/claude/settings.json" ~/.claude/settings.json
+    cp "$DOTFILES_DIR/config/claude/settings.json" ~/.claude/settings.json
     echo "  Copied settings.json -> ~/.claude/settings.json"
   fi
 
-  if [[ -d "$DOTFILES_DIR/claude/commands" ]]; then
+  if [[ -d "$DOTFILES_DIR/config/claude/commands" ]]; then
     mkdir -p ~/.claude/commands
-    cp "$DOTFILES_DIR/claude/commands/"*.md ~/.claude/commands/ 2>/dev/null
+    cp "$DOTFILES_DIR/config/claude/commands/"*.md ~/.claude/commands/ 2>/dev/null
     echo "  Copied slash commands -> ~/.claude/commands/"
   fi
 }
@@ -287,7 +282,7 @@ echo "Next steps:"
 has_component "shell"   && echo "  • Run 'source ~/.zshrc' to reload shell config"
 has_component "tmux"    && echo "  • Open tmux and press 'prefix + I' to install plugins"
 has_component "claude"  && echo "  • Run 'claude login' to authenticate"
-has_component "plugins" && echo "  • Run './claude/setup.sh' to install plugins and configure MCPs"
+has_component "plugins" && echo "  • Run './config/claude/setup.sh' to install plugins and configure MCPs"
 if has_component "plugins" || has_component "claude"; then
   echo "  • Copy secrets.example to ~/.secrets and fill in your values"
 fi
