@@ -114,6 +114,64 @@ install_scripts() {
   done
 }
 
+install_tmux_autosave() {
+  echo ""
+  echo "=== Tmux autosave scheduler ==="
+  local script="$HOME/scripts/tmux-autosave.sh"
+  local log_dir="$HOME/.local/state"
+
+  if [[ ! -x "$script" ]]; then
+    echo "  Skipping autosave scheduler ($script not found)"
+    return
+  fi
+
+  mkdir -p "$log_dir"
+
+  if [[ "$(uname)" == "Darwin" ]]; then
+    local label="com.gman.tmux-autosave"
+    local plist="$HOME/Library/LaunchAgents/$label.plist"
+    mkdir -p "$HOME/Library/LaunchAgents"
+    cat > "$plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$label</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$script</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>StandardOutPath</key>
+  <string>$log_dir/tmux-autosave.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>$log_dir/tmux-autosave.launchd.log</string>
+</dict>
+</plist>
+EOF
+    launchctl bootout "gui/$(id -u)" "$plist" >/dev/null 2>&1 || true
+    launchctl bootstrap "gui/$(id -u)" "$plist" >/dev/null 2>&1 || true
+    launchctl enable "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+    echo "  Installed launchd job $label"
+  elif command -v crontab >/dev/null 2>&1; then
+    local marker_start="# DOTFILES TMUX AUTOSAVE START"
+    local marker_end="# DOTFILES TMUX AUTOSAVE END"
+    local cron_line="*/5 * * * * $script"
+    local tmp
+    tmp="$(mktemp)"
+    ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$cron_line"; echo "$marker_end") > "$tmp"
+    crontab "$tmp"
+    rm -f "$tmp"
+    echo "  Installed crontab autosave job"
+  else
+    echo "  WARNING: crontab not found; tmux autosave scheduler not installed"
+  fi
+}
+
 install_terminal() {
   echo ""
   echo "=== Terminal config (Option key for tmux prefix) ==="
@@ -279,6 +337,9 @@ echo "=== Installing: ${COMPONENTS[*]} ==="
 has_component "shell"    && install_shell
 has_component "tmux"     && install_tmux
 has_component "scripts"  && install_scripts
+if has_component "tmux" || has_component "scripts"; then
+  install_tmux_autosave
+fi
 has_component "terminal" && install_terminal
 has_component "homebrew" && install_homebrew
 has_component "claude"   && install_claude
