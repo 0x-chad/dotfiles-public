@@ -48,7 +48,11 @@ alias gws-personal='GOOGLE_WORKSPACE_CLI_CONFIG_DIR=$HOME/.config/gws-personal g
 command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
 
 ### --- Node (fnm - fast node manager) ---
-command -v fnm >/dev/null 2>&1 && eval "$(fnm env --use-on-cd)"
+if command -v fnm >/dev/null 2>&1; then
+  path=(${path:#$HOME/.local/state/fnm_multishells/*/bin})
+  unset FNM_MULTISHELL_PATH
+  eval "$(fnm env --use-on-cd)"
+fi
 
 ### --- History (zsh way) ---
 export HISTFILE="$HOME/.zsh_history"
