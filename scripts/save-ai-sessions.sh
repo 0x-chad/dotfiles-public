@@ -111,7 +111,9 @@ extract_claude_session_id() {
 extract_codex_session_id_from_args() {
   local args="$1" sid
 
-  sid=$(echo "$args" | grep -oE "(^|[[:space:]])codex([[:space:]]+[^[:space:]]+)*[[:space:]]+resume[[:space:]]+$UUID_RE" \
+  echo "$args" | grep -Eq '(^|[ /])codex([[:space:]]|$)' || return 1
+
+  sid=$(echo "$args" | grep -oE "(^|[[:space:]])resume[[:space:]]+$UUID_RE" \
     | tail -1 | grep -oE "$UUID_RE" || true)
   if [ -n "$sid" ]; then
     echo "$sid"
