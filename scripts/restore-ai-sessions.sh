@@ -48,6 +48,13 @@ total=$(jq length "$INPUT_FILE")
 restored=0
 failed=0
 
+if [ "$total" -eq 0 ]; then
+  echo "No AI sessions saved."
+  echo ""
+  echo "Restored 0/0 sessions (0 skipped)."
+  exit 0
+fi
+
 find_target_pane() {
   local tmux_session="$1" win_idx="$2" win_name="$3" pane_idx="$4"
 

@@ -75,6 +75,13 @@ total=$(jq length "$INPUT_FILE")
 restored=0
 skipped=0
 
+if [ "$total" -eq 0 ]; then
+  echo "No mosh sessions saved."
+  echo ""
+  echo "Restored 0/0 mosh sessions (0 skipped)."
+  exit 0
+fi
+
 for i in $(seq 0 $((total - 1))); do
   tmux_session=$(jq -r ".[$i].tmux_session" "$INPUT_FILE")
   win_idx=$(jq -r ".[$i].window_index" "$INPUT_FILE")
