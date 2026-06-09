@@ -111,7 +111,7 @@ extract_claude_session_id() {
 extract_codex_session_id_from_args() {
   local args="$1" sid
 
-  sid=$(echo "$args" | grep -oE "(^|[[:space:]])codex[[:space:]]+resume[[:space:]]+$UUID_RE" \
+  sid=$(echo "$args" | grep -oE "(^|[[:space:]])codex([[:space:]]+[^[:space:]]+)*[[:space:]]+resume[[:space:]]+$UUID_RE" \
     | tail -1 | grep -oE "$UUID_RE" || true)
   if [ -n "$sid" ]; then
     echo "$sid"
@@ -363,6 +363,12 @@ if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" = true ]; then
       found=$((found + 1))
     fi
   done
+fi
+
+if [ "$found" -eq 0 ] && [ "$total" -gt 0 ] && [ -s "$OUTPUT_FILE" ] && [ "$(jq length "$OUTPUT_FILE" 2>/dev/null || echo 0)" -gt 0 ]; then
+  echo ""
+  echo "WARNING: identified 0/$total sessions; preserving existing non-empty manifest at $OUTPUT_FILE"
+  exit 1
 fi
 
 cp "$TMPFILE" "$OUTPUT_FILE"
