@@ -54,6 +54,11 @@ if command -v fnm >/dev/null 2>&1; then
   eval "$(fnm env --use-on-cd)"
 fi
 
+### --- tmux environment sync ---
+if [[ -n "$TMUX" ]] && command -v tmux >/dev/null 2>&1; then
+  tmux set-environment -g PATH "$PATH" 2>/dev/null || true
+fi
+
 ### --- History (zsh way) ---
 export HISTFILE="$HOME/.zsh_history"
 export HISTSIZE=100000
