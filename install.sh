@@ -116,60 +116,49 @@ install_scripts() {
 
 install_tmux_autosave() {
   echo ""
-  echo "=== Tmux autosave scheduler ==="
+  echo "=== Tmux autosave cron ==="
   local script="$HOME/scripts/tmux-autosave.sh"
+  local lock_script="$HOME/scripts/tmux-autosave-lock.sh"
   local log_dir="$HOME/.local/state"
 
   if [[ ! -x "$script" ]]; then
-    echo "  Skipping autosave scheduler ($script not found)"
+    echo "  WARNING: autosave script not installed ($script not executable)"
+    return
+  fi
+  if [[ ! -x "$lock_script" ]]; then
+    echo "  WARNING: autosave lock script not installed ($lock_script not executable)"
     return
   fi
 
   mkdir -p "$log_dir"
 
+  # Retire older supervisor-based installs. Cron is the only external scheduler.
   if [[ "$(uname)" == "Darwin" ]]; then
     local label="com.gman.tmux-autosave"
     local plist="$HOME/Library/LaunchAgents/$label.plist"
-    mkdir -p "$HOME/Library/LaunchAgents"
-    cat > "$plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>$label</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$script</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>StartInterval</key>
-  <integer>300</integer>
-  <key>StandardOutPath</key>
-  <string>$log_dir/tmux-autosave.launchd.log</string>
-  <key>StandardErrorPath</key>
-  <string>$log_dir/tmux-autosave.launchd.log</string>
-</dict>
-</plist>
-EOF
     launchctl bootout "gui/$(id -u)" "$plist" >/dev/null 2>&1 || true
-    launchctl bootstrap "gui/$(id -u)" "$plist" >/dev/null 2>&1 || true
-    launchctl enable "gui/$(id -u)/$label" >/dev/null 2>&1 || true
-    echo "  Installed launchd job $label"
-  elif command -v crontab >/dev/null 2>&1; then
-    local marker_start="# DOTFILES TMUX AUTOSAVE START"
-    local marker_end="# DOTFILES TMUX AUTOSAVE END"
-    local cron_line="*/5 * * * * $script"
-    local tmp
-    tmp="$(mktemp)"
-    ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$cron_line"; echo "$marker_end") > "$tmp"
-    crontab "$tmp"
-    rm -f "$tmp"
-    echo "  Installed crontab autosave job"
-  else
-    echo "  WARNING: crontab not found; tmux autosave scheduler not installed"
+    rm -f "$plist"
+  elif command -v systemctl >/dev/null 2>&1; then
+    systemctl --user disable --now tmux-autosave-monitor.service >/dev/null 2>&1 || true
+    rm -f "$HOME/.config/systemd/user/tmux-autosave-monitor.service"
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
   fi
+
+  if ! command -v crontab >/dev/null 2>&1; then
+    echo "  WARNING: crontab not found; tmux autosave cron not installed"
+    return
+  fi
+
+  local marker_start="# DOTFILES TMUX AUTOSAVE START"
+  local marker_end="# DOTFILES TMUX AUTOSAVE END"
+  local reboot_line="@reboot $lock_script"
+  local cron_line="*/5 * * * * $script"
+  local tmp
+  tmp="$(mktemp)"
+  ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$reboot_line"; echo "$cron_line"; echo "$marker_end") > "$tmp"
+  crontab "$tmp"
+  rm -f "$tmp"
+  echo "  Installed crontab autosave job"
 }
 
 install_terminal() {

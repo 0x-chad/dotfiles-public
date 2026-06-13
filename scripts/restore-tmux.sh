@@ -10,6 +10,7 @@ set -uo pipefail
 
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESURRECT_RESTORE="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+AUTOSAVE_UNLOCK="$SCRIPTS_DIR/tmux-autosave-unlock.sh"
 restore_status=0
 mosh_status=0
 ai_status=0
@@ -143,6 +144,9 @@ fi
 
 echo ""
 if [ "$restore_status" -eq 0 ] && [ "$mosh_status" -eq 0 ] && [ "$ai_status" -eq 0 ]; then
+  if [ "$DRY_RUN" != true ] && [ -x "$AUTOSAVE_UNLOCK" ]; then
+    "$AUTOSAVE_UNLOCK" >/dev/null 2>&1 || true
+  fi
   echo "═══ Done. ═══"
 else
   echo "═══ Done with warnings. tmux=$restore_status mosh=$mosh_status ai=$ai_status ═══"

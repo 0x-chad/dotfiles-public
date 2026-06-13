@@ -1,5 +1,5 @@
 #!/bin/bash
-# tmux-autosave.sh - safe tmux-resurrect save for launchd, cron, or systemd.
+# tmux-autosave.sh - guarded tmux-resurrect save for tmux-continuum or cron.
 
 set -uo pipefail
 
@@ -12,8 +12,19 @@ export PATH="$HOME/scripts:$HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/
 
 LOG_FILE="${TMUX_AUTOSAVE_LOG:-$HOME/.local/state/tmux-autosave.log}"
 LOCK_DIR="${TMPDIR:-/tmp}/tmux-autosave-$(id -u).lock"
+STATE_DIR="${TMUX_AUTOSAVE_STATE_DIR:-$HOME/.local/state/tmux-autosave}"
+RESTORE_LOCK_FILE="${TMUX_AUTOSAVE_RESTORE_LOCK:-$STATE_DIR/restore-required}"
+FORCE_SAVE="${TMUX_AUTOSAVE_FORCE:-0}"
+UPSTREAM_SAVE_SCRIPT="${TMUX_AUTOSAVE_RESURRECT_SAVE_SCRIPT:-}"
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE_SAVE=1 ;;
+  esac
+done
 
 mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$STATE_DIR"
 exec >>"$LOG_FILE" 2>&1
 
 timestamp() {
@@ -24,6 +35,13 @@ snapshot_field_count() {
   local field="$1"
   local file="$2"
   awk -v field="$field" 'index($0, field "\t") == 1 { count++ } END { print count + 0 }' "$file" 2>/dev/null
+}
+
+is_truthy() {
+  case "${1:-}" in
+    1|true|yes|on) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 valid_snapshot() {
@@ -56,6 +74,14 @@ valid_structural_snapshot() {
 
 shell_quote() {
   printf "'%s'" "$(printf "%s" "$1" | sed "s/'/'\\\\''/g")"
+}
+
+expand_path() {
+  local path="$1"
+  path="${path/#\~/$HOME}"
+  path="${path//\$HOME/$HOME}"
+  path="${path//\$HOSTNAME/$(hostname)}"
+  echo "$path"
 }
 
 restore_old_last() {
@@ -124,10 +150,29 @@ if [ "${expected_panes:-0}" -lt 1 ] || [ "${expected_windows:-0}" -lt 1 ]; then
   exit 0
 fi
 
+if [ -f "$RESTORE_LOCK_FILE" ] && ! is_truthy "$FORCE_SAVE"; then
+  message="$(timestamp): restore lock active; run ~/scripts/restore-tmux.sh or $0 --force"
+  echo "[$(timestamp)] $message"
+  mark_save_failed "$message"
+  exit 2
+fi
+
 save_script="$(tmux show-option -gqv @resurrect-save-script-path 2>/dev/null || true)"
+configured_upstream="$(tmux show-option -gqv @tmux_autosave_resurrect_save_script 2>/dev/null || true)"
+if [ -n "$UPSTREAM_SAVE_SCRIPT" ]; then
+  save_script="$UPSTREAM_SAVE_SCRIPT"
+elif [ -n "$configured_upstream" ]; then
+  save_script="$configured_upstream"
+fi
+
+case "$save_script" in
+  "$0"|"$HOME/scripts/tmux-autosave.sh"|*/tmux-autosave.sh) save_script="" ;;
+esac
+
 if [ -z "$save_script" ]; then
   save_script="$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh"
 fi
+save_script="$(expand_path "$save_script")"
 
 resurrect_dir="$(tmux show-option -gqv @resurrect-dir 2>/dev/null || true)"
 if [ -z "$resurrect_dir" ]; then
@@ -137,11 +182,16 @@ if [ -z "$resurrect_dir" ]; then
     resurrect_dir="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect"
   fi
 fi
+resurrect_dir="$(expand_path "$resurrect_dir")"
 
 last_link="$resurrect_dir/last"
 old_last=""
 if [ -L "$last_link" ]; then
   old_last="$(readlink "$last_link" || true)"
+fi
+old_last_path=""
+if [ -n "$old_last" ]; then
+  old_last_path="$resurrect_dir/$old_last"
 fi
 
 status=0
