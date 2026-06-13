@@ -1,6 +1,6 @@
 #!/bin/bash
 # Source secrets
-. ~/.secrets
+[[ -f ~/.secrets ]] && . ~/.secrets
 
 # Extract OAuth token from credentials file if not already set
 if [[ -z "$CLAUDE_CODE_OAUTH_TOKEN" && -f ~/.claude/.credentials.json ]]; then

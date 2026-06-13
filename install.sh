@@ -231,29 +231,7 @@ install_claude() {
 install_plugins() {
   echo ""
   echo "=== Claude plugins ==="
-  clone_plugin "pal-mcp-server" "BeehiveInnovations/pal-mcp-server"
-
-  # PAL MCP server venv
-  PAL_DIR="$HOME/pal-mcp-server"
-  if [[ -d "$PAL_DIR" && ! -d "$PAL_DIR/.pal_venv" ]]; then
-    echo "  Setting up PAL MCP server..."
-    python3 -m venv "$PAL_DIR/.pal_venv"
-    "$PAL_DIR/.pal_venv/bin/pip" install -q -r "$PAL_DIR/requirements.txt" 2>/dev/null || true
-  fi
-
-  # PAL .env from secrets
-  if [[ -d "$PAL_DIR" && -f "$HOME/.secrets" ]]; then
-    echo "  Configuring PAL MCP server..."
-    grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.secrets \
-      | sed 's/^export //' > "$PAL_DIR/.env"
-    cat >> "$PAL_DIR/.env" << 'EOF'
-OPENROUTER_ALLOWED_MODELS="google/gemini-2.5-pro,openai/gpt-5-1-codex"
-DISABLED_TOOLS=chat,thinkdeep,planner,codereview,precommit,debug,analyze,refactor,testgen,secaudit,docgen,tracer
-DEFAULT_MODEL=auto
-LOG_LEVEL=INFO
-EOF
-    echo "  Created $PAL_DIR/.env"
-  fi
+  echo "  No extra plugin repositories to clone."
 }
 
 # ── Choose what to install ───────────────────────────────────────────

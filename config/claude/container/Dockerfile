@@ -31,18 +31,6 @@ ENV DISPLAY=:99
 RUN git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles \
     && cd ~/dotfiles && ./install.sh || true
 
-# Copy secrets (credentials come from volume at runtime)
-COPY --chown=testuser:testuser secrets /home/testuser/.secrets
-RUN grep -E "^export (OPENROUTER_API_KEY|GEMINI_API_KEY|OPENAI_API_KEY)=" ~/.secrets \
-    | sed 's/^export //' > ~/pal-mcp-server/.env \
-    && echo 'OPENROUTER_ALLOWED_MODELS="google/gemini-2.5-pro,openai/gpt-5-1-codex"' >> ~/pal-mcp-server/.env \
-    && echo 'DISABLED_TOOLS=chat,thinkdeep,planner,codereview,precommit,debug,analyze,refactor,testgen,secaudit,docgen,tracer' >> ~/pal-mcp-server/.env \
-    && echo 'DEFAULT_MODEL=auto' >> ~/pal-mcp-server/.env \
-    && echo 'LOG_LEVEL=INFO' >> ~/pal-mcp-server/.env
-
-# Register plugins and MCP (requires auth token from secrets)
-RUN . ~/.secrets && ~/dotfiles/config/claude/setup.sh
-
 # Pre-install agent-browser and Chrome for fast startup
 RUN npm install -g agent-browser \
     && agent-browser install \

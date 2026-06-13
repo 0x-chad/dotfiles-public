@@ -34,7 +34,6 @@ add_marketplace() {
 add_marketplace "0x-chad/superpowers"
 add_marketplace "anthropics/claude-code"
 add_marketplace "raine/workmux"
-add_marketplace "MussaCharles/claude-code-image-sanitizer"
 echo ""
 
 # Install plugins
@@ -51,7 +50,6 @@ install_plugin "superpowers@superpowers-dev"
 install_plugin "frontend-design@claude-code-plugins"
 install_plugin "ralph-wiggum@claude-code-plugins"
 install_plugin "workmux-status@workmux"
-install_plugin "image-sanitizer@image-sanitizer-marketplace"
 echo ""
 
 # Install skills
@@ -60,34 +58,6 @@ echo "Installing agent-browser..."
 npm install -g agent-browser 2>&1 | tail -1 || true
 agent-browser install 2>&1 | tail -1 || true
 npx skills add vercel-labs/agent-browser 2>&1 | tail -1 || true
-echo ""
-
-# Setup MCP servers
-echo "=== Configuring MCP Servers ==="
-
-# PAL MCP server
-PAL_DIR="$HOME/pal-mcp-server"
-if [[ ! -d "$PAL_DIR" ]]; then
-  echo "Installing PAL MCP server..."
-  git clone https://github.com/BeehiveInnovations/pal-mcp-server "$PAL_DIR"
-fi
-
-if [[ -d "$PAL_DIR" ]]; then
-  echo "Setting up PAL environment..."
-  if [[ -x "$PAL_DIR/run-server.sh" ]]; then
-    "$PAL_DIR/run-server.sh" >/dev/null 2>&1 || {
-      echo "  Warning: PAL setup encountered issues, continuing..."
-    }
-  fi
-
-  echo "Adding PAL MCP server to Claude Code..."
-  claude mcp add pal \
-    -e "ENV_FILE=$PAL_DIR/.env" \
-    -- "$PAL_DIR/.pal_venv/bin/python" "$PAL_DIR/server.py" \
-    2>&1 | grep -E "(Successfully|already|Failed)" || echo "  ✓ Added"
-else
-  echo "Error: Failed to set up PAL MCP server"
-fi
 echo ""
 
 # Verify setup
