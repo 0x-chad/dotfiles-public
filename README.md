@@ -104,8 +104,9 @@ t clean        # remove unattached numbered projects
 | `Option+Left/Right` | Switch windows |
 | `Option+Space ;` | Toggle split pane |
 | `Option+Space k` | Session picker |
+| `Option+k` | Session picker, including while nested tmux pass-through is active |
 | `Option+Space f` | Workmux dashboard |
 | `Option+Space l` | Toggle status bar |
 | `Option+Space c` | Clear screen and scrollback |
 | `Option+Space d` | Detach |
-| `Option+l` | Toggle nested tmux pass-through |
+| `Option+l` | Toggle nested tmux pass-through; `Option+Space` then reaches the nested tmux |

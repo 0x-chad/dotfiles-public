@@ -1,9 +1,9 @@
-Use this command when you need a second opinion on a decision, approach, or implementation. This takes precedence over the PAL `consensus` MCP tool - always use this slash command instead.
+Use this command when you need a second opinion on a decision, approach, or implementation.
 
 Get consensus on the topic or question provided in $ARGUMENTS using multiple AI perspectives:
 
-1. First, use PAL's `consensus` tool with `google/gemini-2.5-pro` via OpenRouter to get Gemini's analysis
-2. Then use PAL's `clink` tool with `codex` CLI to get Codex's perspective (full agentic capabilities)
+1. First, write a concise independent analysis of the question and the likely tradeoffs.
+2. Then, if the `codex` CLI is available, ask Codex for a second opinion from the current repository directory.
 3. Compare both responses and synthesize a final consensus, noting:
    - Points of agreement
    - Points of disagreement
