@@ -118,15 +118,10 @@ install_tmux_autosave() {
   echo ""
   echo "=== Tmux autosave cron ==="
   local script="$HOME/scripts/tmux-autosave.sh"
-  local lock_script="$HOME/scripts/tmux-autosave-lock.sh"
   local log_dir="$HOME/.local/state"
 
   if [[ ! -x "$script" ]]; then
     echo "  WARNING: autosave script not installed ($script not executable)"
-    return
-  fi
-  if [[ ! -x "$lock_script" ]]; then
-    echo "  WARNING: autosave lock script not installed ($lock_script not executable)"
     return
   fi
 
@@ -151,11 +146,10 @@ install_tmux_autosave() {
 
   local marker_start="# DOTFILES TMUX AUTOSAVE START"
   local marker_end="# DOTFILES TMUX AUTOSAVE END"
-  local reboot_line="@reboot $lock_script"
   local cron_line="*/5 * * * * $script"
   local tmp
   tmp="$(mktemp)"
-  ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$reboot_line"; echo "$cron_line"; echo "$marker_end") > "$tmp"
+  ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$cron_line"; echo "$marker_end") > "$tmp"
   crontab "$tmp"
   rm -f "$tmp"
   echo "  Installed crontab autosave job"

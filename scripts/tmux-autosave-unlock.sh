@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clear the restore-required autosave lock.
+# Mark the current tmux server as restored and safe for autosave.
 
 set -euo pipefail
 
@@ -9,12 +9,19 @@ if [ -z "${HOME:-}" ]; then
 fi
 
 STATE_DIR="${TMUX_AUTOSAVE_STATE_DIR:-$HOME/.local/state/tmux-autosave}"
-RESTORE_LOCK_FILE="${TMUX_AUTOSAVE_RESTORE_LOCK:-$STATE_DIR/restore-required}"
+UNLOCKED_SERVER_FILE="${TMUX_AUTOSAVE_UNLOCKED_SERVER:-$STATE_DIR/unlocked-server}"
 
-rm -f "$RESTORE_LOCK_FILE"
+mkdir -p "$STATE_DIR"
 
-if command -v tmux >/dev/null 2>&1 && tmux list-sessions >/dev/null 2>&1; then
-  tmux set-option -gq @tmux_autosave_error "" 2>/dev/null || true
+if ! command -v tmux >/dev/null 2>&1 || ! tmux list-sessions >/dev/null 2>&1; then
+  echo "tmux server not found" >&2
+  exit 1
 fi
 
-echo "tmux autosave unlocked"
+pid="$(tmux display-message -p '#{pid}')"
+start_time="$(tmux display-message -p '#{start_time}')"
+printf '%s:%s\n' "$pid" "$start_time" > "$UNLOCKED_SERVER_FILE"
+
+tmux set-option -gq @tmux_autosave_error "" 2>/dev/null || true
+
+echo "tmux autosave unlocked for server $pid:$start_time"

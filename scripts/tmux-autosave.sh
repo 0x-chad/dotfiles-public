@@ -13,7 +13,7 @@ export PATH="$HOME/scripts:$HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/
 LOG_FILE="${TMUX_AUTOSAVE_LOG:-$HOME/.local/state/tmux-autosave.log}"
 LOCK_DIR="${TMPDIR:-/tmp}/tmux-autosave-$(id -u).lock"
 STATE_DIR="${TMUX_AUTOSAVE_STATE_DIR:-$HOME/.local/state/tmux-autosave}"
-RESTORE_LOCK_FILE="${TMUX_AUTOSAVE_RESTORE_LOCK:-$STATE_DIR/restore-required}"
+UNLOCKED_SERVER_FILE="${TMUX_AUTOSAVE_UNLOCKED_SERVER:-$STATE_DIR/unlocked-server}"
 FORCE_SAVE="${TMUX_AUTOSAVE_FORCE:-0}"
 UPSTREAM_SAVE_SCRIPT="${TMUX_AUTOSAVE_RESURRECT_SAVE_SCRIPT:-}"
 
@@ -84,6 +84,14 @@ expand_path() {
   echo "$path"
 }
 
+current_server_id() {
+  local pid start_time
+  pid="$(tmux display-message -p '#{pid}' 2>/dev/null || true)"
+  start_time="$(tmux display-message -p '#{start_time}' 2>/dev/null || true)"
+  [ -n "$pid" ] && [ -n "$start_time" ] || return 1
+  echo "$pid:$start_time"
+}
+
 restore_old_last() {
   local resurrect_dir="$1"
   local last_link="$2"
@@ -150,13 +158,6 @@ if [ "${expected_panes:-0}" -lt 1 ] || [ "${expected_windows:-0}" -lt 1 ]; then
   exit 0
 fi
 
-if [ -f "$RESTORE_LOCK_FILE" ] && ! is_truthy "$FORCE_SAVE"; then
-  message="$(timestamp): restore lock active; run ~/scripts/restore-tmux.sh or $0 --force"
-  echo "[$(timestamp)] $message"
-  mark_save_failed "$message"
-  exit 2
-fi
-
 save_script="$(tmux show-option -gqv @resurrect-save-script-path 2>/dev/null || true)"
 configured_upstream="$(tmux show-option -gqv @tmux_autosave_resurrect_save_script 2>/dev/null || true)"
 if [ -n "$UPSTREAM_SAVE_SCRIPT" ]; then
@@ -192,6 +193,18 @@ fi
 old_last_path=""
 if [ -n "$old_last" ]; then
   old_last_path="$resurrect_dir/$old_last"
+fi
+
+if [ -n "$old_last_path" ] && valid_structural_snapshot "$old_last_path" && ! is_truthy "$FORCE_SAVE"; then
+  server_id="$(current_server_id || true)"
+  unlocked_server=""
+  [ -f "$UNLOCKED_SERVER_FILE" ] && unlocked_server="$(head -n 1 "$UNLOCKED_SERVER_FILE" 2>/dev/null || true)"
+  if [ -z "$server_id" ] || [ "$server_id" != "$unlocked_server" ]; then
+    message="$(timestamp): tmux server not restored; run ~/scripts/restore-tmux.sh"
+    echo "[$(timestamp)] $message current=${server_id:-unknown} unlocked=${unlocked_server:-none}"
+    mark_save_failed "$message"
+    exit 2
+  fi
 fi
 
 status=0
