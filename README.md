@@ -109,4 +109,4 @@ t clean        # remove unattached numbered projects
 | `Option+Space l` | Toggle status bar |
 | `Option+Space c` | Clear screen and scrollback |
 | `Option+Space d` | Detach |
-| `Option+l` | Toggle nested tmux pass-through; `Option+Space` then reaches the nested tmux |
+| `Option+l` | Toggle nested tmux pass-through; hides this session's status bar and sends `Option+Space` to the nested tmux |
