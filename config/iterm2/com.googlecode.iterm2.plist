@@ -834,7 +834,21 @@
 				<string>telnet</string>
 			</array>
 			<key>Keyboard Map</key>
-			<dict/>
+			<dict>
+				<key>0x6b-0x100000-0x28</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>40</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string>k</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
+			</dict>
 			<key>Link Color</key>
 			<dict>
 				<key>Alpha Component</key>
@@ -1827,7 +1841,21 @@
 				<string>telnet</string>
 			</array>
 			<key>Keyboard Map</key>
-			<dict/>
+			<dict>
+				<key>0x6b-0x100000-0x28</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>40</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string>k</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
+			</dict>
 			<key>Link Color</key>
 			<dict>
 				<key>Alpha Component</key>
