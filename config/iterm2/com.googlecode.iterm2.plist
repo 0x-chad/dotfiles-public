@@ -874,6 +874,32 @@
 					<key>Version</key>
 					<integer>1</integer>
 				</dict>
+				<key>0xf702-0x100000-0x7b</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>123</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string>[1;3D</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
+				<key>0xf703-0x100000-0x7c</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>124</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string>[1;3C</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
 			</dict>
 			<key>Link Color</key>
 			<dict>
@@ -1904,6 +1930,32 @@
 					<integer>1048576</integer>
 					<key>Text</key>
 					<string> c</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
+				<key>0xf702-0x100000-0x7b</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>123</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string>[1;3D</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
+				<key>0xf703-0x100000-0x7c</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>124</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string>[1;3C</string>
 					<key>Version</key>
 					<integer>1</integer>
 				</dict>

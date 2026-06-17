@@ -101,7 +101,7 @@ t clean        # remove unattached numbered projects
 | `Option+Space` | Prefix |
 | `Option+Space t` | New window |
 | `Option+Space r` | Rename window |
-| `Option+Left/Right` | Switch windows |
+| `Option+Left/Right`, `Command+Left/Right` | Switch windows |
 | `Option+Space ;` | Toggle split pane |
 | `Option+Space k` | Session picker |
 | `Option+k` | Session picker, including while nested tmux pass-through is active |
