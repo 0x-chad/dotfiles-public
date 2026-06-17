@@ -90,6 +90,7 @@ secrets.example                         # Template for ~/.secrets
 ```bash
 t              # list projects
 t <name>       # attach or create project
+t --select     # pick a session with fzf and run normal cleanup
 t a            # reattach to last project
 t clean        # remove unattached numbered projects
 ```
