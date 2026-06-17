@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - `t` command for named project sessions
   - Workmux dashboard via `Option+Space f`
   - Auto-start tmux on new terminal tabs and SSH sessions with a real TTY
-  - Nested tmux pass-through with `Option+l`
+  - Nested tmux pass-through with `Command+l`
   - Status bar toggle with `Option+Space l`
   - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
 - **Terminal**
@@ -110,4 +110,4 @@ t clean        # remove unattached numbered projects
 | `Option+Space c` | Clear screen and scrollback |
 | `Command+0` | Clear screen and scrollback in the active tmux layer |
 | `Option+Space d` | Detach |
-| `Option+l` | Toggle nested tmux pass-through; hides this session's status bar and sends `Option+Space` to the nested tmux |
+| `Command+l` | Toggle nested tmux pass-through; hides this session's status bar and sends `Option+Space` to the nested tmux |

@@ -27,6 +27,8 @@ macos-option-as-alt = true
 
 # Make Cmd+k send the same M-k sequence tmux receives from Option+k.
 keybind = cmd+k=text:\x1bk
+# Make Cmd+l send the M-l sequence tmux uses for nested pass-through.
+keybind = cmd+l=text:\x1bl
 # Make Cmd+0 send the same prefix+c sequence as Option+Space c.
 keybind = cmd+digit0=text:\x1b\x20c
 
