@@ -848,6 +848,19 @@
 					<key>Version</key>
 					<integer>1</integer>
 				</dict>
+				<key>0x30-0x100000-0x1d</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>29</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string> c</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
 			</dict>
 			<key>Link Color</key>
 			<dict>
@@ -1852,6 +1865,19 @@
 					<integer>1048576</integer>
 					<key>Text</key>
 					<string>k</string>
+					<key>Version</key>
+					<integer>1</integer>
+				</dict>
+				<key>0x30-0x100000-0x1d</key>
+				<dict>
+					<key>Action</key>
+					<integer>10</integer>
+					<key>Keycode</key>
+					<integer>29</integer>
+					<key>Modifiers</key>
+					<integer>1048576</integer>
+					<key>Text</key>
+					<string> c</string>
 					<key>Version</key>
 					<integer>1</integer>
 				</dict>

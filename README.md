@@ -108,5 +108,6 @@ t clean        # remove unattached numbered projects
 | `Option+Space f` | Workmux dashboard |
 | `Option+Space l` | Toggle status bar |
 | `Option+Space c` | Clear screen and scrollback |
+| `Command+0` | Clear screen and scrollback in the active tmux layer |
 | `Option+Space d` | Detach |
 | `Option+l` | Toggle nested tmux pass-through; hides this session's status bar and sends `Option+Space` to the nested tmux |
