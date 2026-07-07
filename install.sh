@@ -163,6 +163,7 @@ ensure_npm() {
 install_npm_cli() {
   local command_name="$1"
   local package_name="$2"
+  local npm_global_root npm_global_parent
 
   if command -v "$command_name" >/dev/null 2>&1; then
     echo "  $command_name already installed"
@@ -171,12 +172,15 @@ install_npm_cli() {
 
   ensure_npm
   echo "  Installing $package_name..."
-  if npm install -g "$package_name"; then
-    :
+  npm_global_root="$(npm root -g 2>/dev/null || true)"
+  npm_global_parent="$(dirname "${npm_global_root:-/}")"
+  if { [ -n "$npm_global_root" ] && [ -d "$npm_global_root" ] && [ -w "$npm_global_root" ]; } ||
+     { [ -n "$npm_global_root" ] && [ ! -e "$npm_global_root" ] && [ -w "$npm_global_parent" ]; }; then
+    npm install -g "$package_name"
   elif command -v sudo >/dev/null 2>&1; then
     sudo env PATH="$PATH" npm install -g "$package_name"
   else
-    die "failed to install $package_name and sudo is unavailable"
+    die "npm global root is not writable and sudo is unavailable: ${npm_global_root:-unknown}"
   fi
 
   command -v "$command_name" >/dev/null 2>&1 || die "$command_name still not found after installing $package_name"
