@@ -54,7 +54,7 @@ valid_snapshot() {
   [ -f "$file" ] || return 1
 
   bytes="$(wc -c < "$file" 2>/dev/null || echo 0)"
-  [ "$bytes" -ge 1000 ] || return 1
+  [ "$bytes" -gt 0 ] || return 1
 
   pane_rows="$(snapshot_field_count pane "$file")"
   window_rows="$(snapshot_field_count window "$file")"
@@ -67,7 +67,7 @@ valid_structural_snapshot() {
   local file="$1"
   [ -n "$file" ] || return 1
   [ -f "$file" ] || return 1
-  [ "$(wc -c < "$file" 2>/dev/null || echo 0)" -ge 1000 ] || return 1
+  [ "$(wc -c < "$file" 2>/dev/null || echo 0)" -gt 0 ] || return 1
   [ "$(snapshot_field_count pane "$file")" -ge 1 ] || return 1
   [ "$(snapshot_field_count window "$file")" -ge 1 ] || return 1
 }
