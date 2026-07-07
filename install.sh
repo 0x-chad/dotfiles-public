@@ -7,8 +7,14 @@
 #   pick   — interactive component picker (default)
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APT_UPDATED=false
 
 # ── Helpers ──────────────────────────────────────────────────────────
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
 symlink_file() {
   local src="$1" target="$2"
   local src_path="$DOTFILES_DIR/$src"
@@ -44,12 +50,105 @@ clone_plugin() {
   fi
 }
 
+install_tmux_plugin() {
+  local name="$1"
+  local repo="$2"
+  local dir="$HOME/.tmux/plugins/$name"
+
+  if [[ -d "$dir/.git" ]]; then
+    echo "  Updating $name..."
+    git -C "$dir" pull --ff-only 2>/dev/null || true
+  else
+    echo "  Cloning $name..."
+    rm -rf "$dir"
+    git clone "https://github.com/$repo.git" "$dir"
+  fi
+}
+
 has_component() {
   local target="$1"
   for c in "${COMPONENTS[@]}"; do
     [[ "$c" == "$target" ]] && return 0
   done
   return 1
+}
+
+run_as_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    die "need root privileges to run: $*"
+  fi
+}
+
+apt_install() {
+  if [[ "$APT_UPDATED" != true ]]; then
+    run_as_root apt-get update -qq
+    APT_UPDATED=true
+  fi
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@"
+}
+
+install_packages() {
+  local packages=("$@")
+  [[ ${#packages[@]} -eq 0 ]] && return 0
+
+  if command -v brew >/dev/null 2>&1; then
+    brew install "${packages[@]}"
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt_install "${packages[@]}"
+  else
+    die "no supported package manager found; install these packages first: ${packages[*]}"
+  fi
+}
+
+ensure_command() {
+  local command_name="$1"
+  local package_name="${2:-$1}"
+
+  if command -v "$command_name" >/dev/null 2>&1; then
+    echo "  $command_name already installed"
+    return 0
+  fi
+
+  echo "  Installing $package_name..."
+  install_packages "$package_name"
+  command -v "$command_name" >/dev/null 2>&1 || die "$command_name still not found after installing $package_name"
+}
+
+ensure_crontab() {
+  if command -v crontab >/dev/null 2>&1; then
+    echo "  crontab already installed"
+    return 0
+  fi
+
+  echo "  Installing cron..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt_install cron
+    if command -v systemctl >/dev/null 2>&1; then
+      run_as_root systemctl enable --now cron >/dev/null 2>&1 || true
+    elif command -v service >/dev/null 2>&1; then
+      run_as_root service cron start >/dev/null 2>&1 || true
+    fi
+  elif command -v brew >/dev/null 2>&1; then
+    die "crontab not found; macOS normally provides cron, so install/fix cron before continuing"
+  else
+    die "crontab not found and no supported package manager is available"
+  fi
+
+  command -v crontab >/dev/null 2>&1 || die "crontab still not found after installing cron"
+}
+
+ensure_basic_prereqs() {
+  echo ""
+  echo "=== Basic prerequisites ==="
+  ensure_command git git
+  ensure_command zsh zsh
+  ensure_command tmux tmux
+  ensure_command mosh mosh
+  ensure_crontab
 }
 
 # ── Component install functions ──────────────────────────────────────
@@ -75,30 +174,18 @@ install_tmux() {
   else
     echo "  Cloning tpm..."
     mkdir -p "$HOME/.tmux/plugins"
+    rm -rf "$TPM_DIR"
     git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
     echo "  tpm installed"
   fi
+  [[ -f "$TPM_DIR/tpm" ]] || die "tpm was not installed"
 
-  if [[ -x "$TPM_DIR/bin/install_plugins" ]]; then
-    echo "  Installing tpm plugins..."
-    "$TPM_DIR/bin/install_plugins"
-  else
-    echo "  WARNING: tpm plugin installer not found at $TPM_DIR/bin/install_plugins"
-  fi
+  install_tmux_plugin "tmux-resurrect" "tmux-plugins/tmux-resurrect"
+  install_tmux_plugin "tmux-continuum" "tmux-plugins/tmux-continuum"
+  [[ -x "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh" ]] || die "tmux-resurrect save script was not installed"
+  [[ -d "$HOME/.tmux/plugins/tmux-continuum" ]] || die "tmux-continuum was not installed"
 
-  # Install mosh for persistent remote connections
-  if ! command -v mosh &>/dev/null; then
-    echo "  Installing mosh..."
-    if command -v brew &>/dev/null; then
-      brew install mosh
-    elif command -v apt-get &>/dev/null; then
-      sudo apt-get install -y -qq mosh
-    else
-      echo "  Skipping mosh (no supported package manager found)"
-    fi
-  else
-    echo "  mosh already installed"
-  fi
+  command -v mosh >/dev/null 2>&1 || die "mosh not found after prerequisite install"
 }
 
 install_scripts() {
@@ -146,19 +233,19 @@ install_tmux_autosave() {
     systemctl --user daemon-reload >/dev/null 2>&1 || true
   fi
 
-  if ! command -v crontab >/dev/null 2>&1; then
-    echo "  WARNING: crontab not found; tmux autosave cron not installed"
-    return
-  fi
+  command -v crontab >/dev/null 2>&1 || die "crontab not found; tmux autosave cron cannot be installed"
 
   local marker_start="# DOTFILES TMUX AUTOSAVE START"
   local marker_end="# DOTFILES TMUX AUTOSAVE END"
   local cron_line="*/5 * * * * $script"
-  local tmp
-  tmp="$(mktemp)"
-  ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$cron_line"; echo "$marker_end") > "$tmp"
-  crontab "$tmp"
-  rm -f "$tmp"
+  local cron_tmp
+  cron_tmp="$(mktemp)"
+  ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "$cron_line"; echo "$marker_end") > "$cron_tmp"
+  if ! crontab "$cron_tmp"; then
+    rm -f "$cron_tmp"
+    die "failed to install tmux autosave crontab"
+  fi
+  rm -f "$cron_tmp"
   echo "  Installed crontab autosave job"
 }
 
@@ -311,6 +398,9 @@ echo ""
 echo "=== Installing: ${COMPONENTS[*]} ==="
 
 # ── Run selected components ──────────────────────────────────────────
+if has_component "shell" || has_component "tmux" || has_component "scripts"; then
+  ensure_basic_prereqs
+fi
 has_component "shell"    && install_shell
 has_component "tmux"     && install_tmux
 has_component "scripts"  && install_scripts
@@ -329,7 +419,7 @@ echo "=== Done! ==="
 echo ""
 echo "Next steps:"
 has_component "shell"   && echo "  • Run 'source ~/.zshrc' to reload shell config"
-has_component "tmux"    && echo "  • Open tmux and press 'prefix + I' to install plugins"
+has_component "tmux"    && echo "  • Restart tmux or run 'tmux source-file ~/.tmux.conf' to load config changes"
 has_component "claude"  && echo "  • Run 'claude login' to authenticate"
 has_component "codex"   && echo "  • Run 'codex login' to authenticate"
 has_component "plugins" && echo "  • Run './config/claude/setup.sh' to install plugins and configure MCPs"
