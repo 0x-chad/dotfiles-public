@@ -51,12 +51,12 @@ cd ~/dotfiles
 Install modes:
 
 ```bash
-./install.sh basic  # shell, tmux, scripts, Claude/Codex config, autosave; terminal config on macOS
+./install.sh basic  # shell, tmux, scripts, Claude/Codex CLIs + config, autosave; terminal config on macOS
 ./install.sh full   # basic + Homebrew, Claude/Codex plugins
 ./install.sh pick   # interactive component picker
 ```
 
-`basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, and `cron`/`crontab`.
+`basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `node`/`npm`, and `cron`/`crontab`.
 
 After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values

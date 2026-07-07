@@ -141,6 +141,47 @@ ensure_crontab() {
   command -v crontab >/dev/null 2>&1 || die "crontab still not found after installing cron"
 }
 
+ensure_npm() {
+  if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+    echo "  node/npm already installed"
+    return 0
+  fi
+
+  echo "  Installing node/npm..."
+  if command -v brew >/dev/null 2>&1; then
+    install_packages node
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt_install nodejs npm
+  else
+    die "no supported package manager found; install node/npm first"
+  fi
+
+  command -v node >/dev/null 2>&1 || die "node still not found after install"
+  command -v npm >/dev/null 2>&1 || die "npm still not found after install"
+}
+
+install_npm_cli() {
+  local command_name="$1"
+  local package_name="$2"
+
+  if command -v "$command_name" >/dev/null 2>&1; then
+    echo "  $command_name already installed"
+    return 0
+  fi
+
+  ensure_npm
+  echo "  Installing $package_name..."
+  if npm install -g "$package_name"; then
+    :
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo env PATH="$PATH" npm install -g "$package_name"
+  else
+    die "failed to install $package_name and sudo is unavailable"
+  fi
+
+  command -v "$command_name" >/dev/null 2>&1 || die "$command_name still not found after installing $package_name"
+}
+
 ensure_basic_prereqs() {
   echo ""
   echo "=== Basic prerequisites ==="
@@ -331,7 +372,9 @@ install_homebrew() {
 
 install_claude() {
   echo ""
-  echo "=== Claude settings ==="
+  echo "=== Claude CLI + settings ==="
+  install_npm_cli claude "@anthropic-ai/claude-code"
+
   if [[ -f "$DOTFILES_DIR/config/claude/settings.json" ]]; then
     mkdir -p ~/.claude
     cp "$DOTFILES_DIR/config/claude/settings.json" ~/.claude/settings.json
@@ -347,7 +390,9 @@ install_claude() {
 
 install_codex() {
   echo ""
-  echo "=== Codex settings ==="
+  echo "=== Codex CLI + settings ==="
+  install_npm_cli codex "@openai/codex"
+
   if [[ -f "$DOTFILES_DIR/config/codex/config.toml" ]]; then
     mkdir -p ~/.codex
     symlink_file "config/codex/config.toml" ".codex/config.toml"
