@@ -21,8 +21,8 @@ for arg in "$@"; do
 done
 
 if [ ! -f "$INPUT_FILE" ]; then
-  echo "Error: $INPUT_FILE not found. Run save-ai-sessions.sh first."
-  exit 1
+  echo "No AI session manifest found at $INPUT_FILE"
+  exit 0
 fi
 
 pane_label() {

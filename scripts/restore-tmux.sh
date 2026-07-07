@@ -143,10 +143,11 @@ else
 fi
 
 echo ""
+if [ "$restore_status" -eq 0 ] && [ "$DRY_RUN" != true ] && [ -x "$AUTOSAVE_UNLOCK" ]; then
+  "$AUTOSAVE_UNLOCK" >/dev/null 2>&1 || true
+fi
+
 if [ "$restore_status" -eq 0 ] && [ "$mosh_status" -eq 0 ] && [ "$ai_status" -eq 0 ]; then
-  if [ "$DRY_RUN" != true ] && [ -x "$AUTOSAVE_UNLOCK" ]; then
-    "$AUTOSAVE_UNLOCK" >/dev/null 2>&1 || true
-  fi
   echo "═══ Done. ═══"
 else
   echo "═══ Done with warnings. tmux=$restore_status mosh=$mosh_status ai=$ai_status ═══"
