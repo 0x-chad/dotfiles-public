@@ -76,7 +76,14 @@ install_tmux() {
     echo "  Cloning tpm..."
     mkdir -p "$HOME/.tmux/plugins"
     git clone https://github.com/tmux-plugins/tpm "$TPM_DIR"
-    echo "  tpm installed — run 'prefix + I' inside tmux to install plugins"
+    echo "  tpm installed"
+  fi
+
+  if [[ -x "$TPM_DIR/bin/install_plugins" ]]; then
+    echo "  Installing tpm plugins..."
+    "$TPM_DIR/bin/install_plugins"
+  else
+    echo "  WARNING: tpm plugin installer not found at $TPM_DIR/bin/install_plugins"
   fi
 
   # Install mosh for persistent remote connections
