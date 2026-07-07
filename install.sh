@@ -2,7 +2,7 @@
 # Dotfiles install script - creates symlinks and installs packages
 #
 # Usage: ./install.sh [basic|full|pick]
-#   basic  — shell + tmux + scripts only (good for remote servers)
+#   basic  — shell + tmux + scripts + Claude/Codex config (+ terminal config on macOS)
 #   full   — everything: brew packages, Claude plugins, MCP servers
 #   pick   — interactive component picker (default)
 
@@ -249,6 +249,30 @@ install_tmux_autosave() {
   echo "  Installed crontab autosave job"
 }
 
+set_iterm_key_binding() {
+  local plist="$1"
+  local profile_index="$2"
+  local binding="$3"
+  local keycode="$4"
+  local text="$5"
+  local profile_path=":New\\ Bookmarks:$profile_index"
+  local map_path="$profile_path:Keyboard\\ Map"
+  local binding_path="$map_path:$binding"
+
+  /usr/libexec/PlistBuddy -c "Print $map_path" "$plist" >/dev/null 2>&1 ||
+    /usr/libexec/PlistBuddy -c "Add $map_path dict" "$plist" >/dev/null 2>&1 || true
+
+  /usr/libexec/PlistBuddy -c "Delete $binding_path" "$plist" >/dev/null 2>&1 || true
+  /usr/libexec/PlistBuddy -c "Add $binding_path dict" "$plist"
+  # Action 10 is iTerm2's "Send Escape Sequence"; Text intentionally excludes
+  # the ESC byte because iTerm prepends it for this action.
+  /usr/libexec/PlistBuddy -c "Add $binding_path:Action integer 10" "$plist"
+  /usr/libexec/PlistBuddy -c "Add $binding_path:Keycode integer $keycode" "$plist"
+  /usr/libexec/PlistBuddy -c "Add $binding_path:Modifiers integer 1048576" "$plist"
+  /usr/libexec/PlistBuddy -c "Add $binding_path:Text string '$text'" "$plist"
+  /usr/libexec/PlistBuddy -c "Add $binding_path:Version integer 1" "$plist"
+}
+
 install_terminal() {
   echo ""
   echo "=== Terminal config (Option key for tmux prefix) ==="
@@ -281,9 +305,14 @@ install_terminal() {
     local i=0
     while /usr/libexec/PlistBuddy -c "Print :New\ Bookmarks:$i:Name" "$plist" &>/dev/null; do
       /usr/libexec/PlistBuddy -c "Set :New\ Bookmarks:$i:Option\ Key\ Sends 2" "$plist" 2>/dev/null
+      set_iterm_key_binding "$plist" "$i" "0x6b-0x100000-0x28" 40 "k"
+      set_iterm_key_binding "$plist" "$i" "0x6c-0x100000-0x25" 37 "l"
+      set_iterm_key_binding "$plist" "$i" "0x30-0x100000-0x1d" 29 " c"
+      set_iterm_key_binding "$plist" "$i" "0xf702-0x100000-0x7b" 123 "[1;3D"
+      set_iterm_key_binding "$plist" "$i" "0xf703-0x100000-0x7c" 124 "[1;3C"
       ((i++))
     done
-    echo "  Set iTerm2 Left Option key to Esc+ for $i profile(s)"
+    echo "  Set iTerm2 Option and Command key tmux mappings for $i profile(s)"
   else
     echo "  iTerm2 not found, skipping"
   fi
@@ -337,7 +366,10 @@ COMPONENTS=()
 
 case "$MODE" in
   basic)
-    COMPONENTS=(shell tmux scripts)
+    COMPONENTS=(shell tmux scripts claude codex)
+    if [[ "$(uname)" == "Darwin" ]]; then
+      COMPONENTS+=(terminal)
+    fi
     ;;
   full)
     COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins)
@@ -369,18 +401,26 @@ case "$MODE" in
       echo "Detected: $(uname) — defaulting to '$default'"
       echo ""
       echo "Install modes:"
-      echo "  1) basic  — shell, tmux, scripts, tpm"
+      echo "  1) basic  — shell, tmux, scripts, tpm, Claude/Codex config; terminal config on macOS"
       echo "  2) full   — basic + terminal config, Homebrew packages, Claude/Codex config, plugins, MCP servers"
       echo ""
       read -rp "Choose [1/2] (default: $default): " choice
       case "$choice" in
-        1|basic)  COMPONENTS=(shell tmux scripts) ;;
+        1|basic)
+          COMPONENTS=(shell tmux scripts claude codex)
+          if [[ "$(uname)" == "Darwin" ]]; then
+            COMPONENTS+=(terminal)
+          fi
+          ;;
         2|full)   COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins) ;;
         "")
           if [[ "$default" == "full" ]]; then
             COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins)
           else
-            COMPONENTS=(shell tmux scripts)
+            COMPONENTS=(shell tmux scripts claude codex)
+            if [[ "$(uname)" == "Darwin" ]]; then
+              COMPONENTS+=(terminal)
+            fi
           fi
           ;;
         *)        echo "Invalid choice"; exit 1 ;;

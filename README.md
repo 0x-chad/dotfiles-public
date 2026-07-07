@@ -51,8 +51,8 @@ cd ~/dotfiles
 Install modes:
 
 ```bash
-./install.sh basic  # shell, tmux, scripts, TPM plugins, tmux autosave cron
-./install.sh full   # basic + terminal config, Homebrew, Claude/Codex config/plugins
+./install.sh basic  # shell, tmux, scripts, Claude/Codex config, autosave; terminal config on macOS
+./install.sh full   # basic + Homebrew, Claude/Codex plugins
 ./install.sh pick   # interactive component picker
 ```
 
