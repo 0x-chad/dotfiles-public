@@ -33,9 +33,7 @@ fi
 ### --- Prompt & colors ---
 autoload -U colors && colors
 # %n = username, %1~ = last path segment, %F{color} sets color, %f resets
-prompt_host="${DOTFILES_PROMPT_HOST:-${HOST%%.*}}"
-prompt_host="${prompt_host%-noble-amd64-base}"
-PROMPT="%F{magenta}%n@${prompt_host}:%1~ $ %f"
+PROMPT="%F{magenta}%n@%m:%1~ $ %f"
 
 ### --- Aliases ---
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
