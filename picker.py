@@ -17,6 +17,7 @@ COMPONENTS = [
     ("terminal", "Terminal config",    "Ghostty + iTerm2 Option key (macOS)",  True,  False),
     ("homebrew", "Homebrew packages", "CLI tools, casks (macOS only)",        True,  False),
     ("claude",   "Claude settings",   "settings.json, slash commands",        True,  False),
+    ("codex",    "Codex settings",    "config.toml agent limits",             True,  False),
     ("plugins",  "Claude plugins",    "superpowers, agent-browser, PAL MCP",  True,  False),
 ]
 

@@ -30,6 +30,8 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Skills: agent-browser
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
   - Dev container with noVNC for browser automation
+- **Codex**
+  - Public agent limits: 20 parallel threads, depth 3
 - **Brewfile**
   - Terminal: tmux, mosh, fzf, jq
   - Git: gh CLI, git-lfs
@@ -50,7 +52,7 @@ Install modes:
 
 ```bash
 ./install.sh basic  # shell, tmux, scripts; good for Linux servers
-./install.sh full   # basic + terminal config, Homebrew, Claude config/plugins
+./install.sh full   # basic + terminal config, Homebrew, Claude/Codex config/plugins
 ./install.sh pick   # interactive component picker
 ```
 
@@ -70,6 +72,7 @@ config/
     container/                          # Dev container (Dockerfile, build/run scripts)
     settings.json                       # Claude settings
     setup.sh                            # Post-login plugin/MCP setup
+  codex/config.toml   -> ~/.codex/config.toml
   ghostty/config      -> ~/.config/ghostty/config
   iterm2/com.googlecode.iterm2.plist    # iTerm2 preferences
   osx/osx-config.sh                     # macOS system preferences

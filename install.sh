@@ -229,6 +229,15 @@ install_claude() {
   fi
 }
 
+install_codex() {
+  echo ""
+  echo "=== Codex settings ==="
+  if [[ -f "$DOTFILES_DIR/config/codex/config.toml" ]]; then
+    mkdir -p ~/.codex
+    symlink_file "config/codex/config.toml" ".codex/config.toml"
+  fi
+}
+
 install_plugins() {
   echo ""
   echo "=== Claude plugins ==="
@@ -244,7 +253,7 @@ case "$MODE" in
     COMPONENTS=(shell tmux scripts)
     ;;
   full)
-    COMPONENTS=(shell tmux scripts terminal homebrew claude plugins)
+    COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins)
     ;;
   *)
     # Try interactive picker (requires Python 3 + curses)
@@ -274,15 +283,15 @@ case "$MODE" in
       echo ""
       echo "Install modes:"
       echo "  1) basic  — shell, tmux, scripts, tpm"
-      echo "  2) full   — basic + terminal config, Homebrew packages, Claude plugins, MCP servers"
+      echo "  2) full   — basic + terminal config, Homebrew packages, Claude/Codex config, plugins, MCP servers"
       echo ""
       read -rp "Choose [1/2] (default: $default): " choice
       case "$choice" in
         1|basic)  COMPONENTS=(shell tmux scripts) ;;
-        2|full)   COMPONENTS=(shell tmux scripts terminal homebrew claude plugins) ;;
+        2|full)   COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins) ;;
         "")
           if [[ "$default" == "full" ]]; then
-            COMPONENTS=(shell tmux scripts terminal homebrew claude plugins)
+            COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins)
           else
             COMPONENTS=(shell tmux scripts)
           fi
@@ -311,6 +320,7 @@ fi
 has_component "terminal" && install_terminal
 has_component "homebrew" && install_homebrew
 has_component "claude"   && install_claude
+has_component "codex"    && install_codex
 has_component "plugins"  && install_plugins
 
 # ── Done ─────────────────────────────────────────────────────────────
@@ -321,6 +331,7 @@ echo "Next steps:"
 has_component "shell"   && echo "  • Run 'source ~/.zshrc' to reload shell config"
 has_component "tmux"    && echo "  • Open tmux and press 'prefix + I' to install plugins"
 has_component "claude"  && echo "  • Run 'claude login' to authenticate"
+has_component "codex"   && echo "  • Run 'codex login' to authenticate"
 has_component "plugins" && echo "  • Run './config/claude/setup.sh' to install plugins and configure MCPs"
 if has_component "plugins" || has_component "claude"; then
   echo "  • Copy secrets.example to ~/.secrets and fill in your values"
