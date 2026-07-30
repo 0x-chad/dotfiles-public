@@ -78,6 +78,69 @@ repair_resurrect_files() {
   fi
 }
 
+snapshot_has_session() {
+  local resurrect_file="$1"
+  local session_name="$2"
+
+  [ -f "$resurrect_file" ] || return 1
+  awk -F '\t' -v session_name="$session_name" '
+    ($1 == "pane" || $1 == "window") && $2 == session_name {
+      found = 1
+      exit
+    }
+    END { exit !found }
+  ' "$resurrect_file"
+}
+
+launch_restore_worker() {
+  local resurrect_dir resurrect_file
+  local base_name candidate suffix status_option worker_command arg status
+
+  resurrect_dir="$(resolve_resurrect_dir)"
+  resurrect_file="$resurrect_dir/last"
+  base_name="${TMUX_RESTORE_RECOVERY_SESSION:-restore-recovery}"
+  case "$base_name" in
+    ""|*[!A-Za-z0-9_-]*) base_name="restore-recovery" ;;
+  esac
+  candidate="$base_name"
+  suffix=2
+
+  while tmux has-session -t "=$candidate" 2>/dev/null ||
+        snapshot_has_session "$resurrect_file" "$candidate"; do
+    candidate="$base_name-$suffix"
+    suffix=$((suffix + 1))
+  done
+
+  status_option="@tmux-restore-status-$$-$RANDOM"
+  printf -v worker_command 'HOME=%q TMUX_RESTORE_WORKER=1 %q' "$HOME" "$0"
+  for arg in "$@"; do
+    printf -v worker_command '%s %q' "$worker_command" "$arg"
+  done
+  printf -v worker_command \
+    '%s; worker_status=$?; tmux set-option -gq %q "$worker_status"; tmux run-shell -b %q; exit "$worker_status"' \
+    "$worker_command" "$status_option" \
+    "sleep 1; tmux kill-session -t '=$candidate' >/dev/null 2>&1 || true"
+
+  tmux new-session -d -s "$candidate" "$worker_command"
+  echo "Restore is running independently in tmux session '$candidate'."
+
+  while tmux has-session -t "=$candidate" 2>/dev/null; do
+    status=$(tmux show-option -gqv "$status_option" 2>/dev/null || true)
+    [ -z "$status" ] || break
+    sleep 0.1
+  done
+
+  status=$(tmux show-option -gqv "$status_option" 2>/dev/null || true)
+  tmux set-option -gu "$status_option" 2>/dev/null || true
+  if [ -z "$status" ]; then
+    echo "ERROR: restore session '$candidate' ended before reporting completion."
+    return 1
+  fi
+
+  echo "Restore session '$candidate' finished with status $status and will remove itself."
+  return "$status"
+}
+
 echo "═══ Restoring tmux state ═══"
 echo ""
 
@@ -88,6 +151,11 @@ if [ -n "${TMUX:-}" ]; then
   echo ""
 else
   ensure_tmux_socket_env
+fi
+
+if [ "${TMUX_RESTORE_WORKER:-0}" != "1" ] && [ "$DRY_RUN" != true ]; then
+  launch_restore_worker "$@"
+  exit $?
 fi
 
 # Step 1: Restore tmux layout
