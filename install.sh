@@ -160,17 +160,35 @@ ensure_npm() {
   command -v npm >/dev/null 2>&1 || die "npm still not found after install"
 }
 
+ensure_user_npm_prefix() {
+  local npm_global_root
+
+  ensure_npm
+
+  npm_global_root="$(npm root -g 2>/dev/null || true)"
+  if [ -n "$npm_global_root" ] &&
+     { [ -w "$npm_global_root" ] || { [ ! -e "$npm_global_root" ] && [ -w "$(dirname "$npm_global_root")" ]; }; }; then
+    return 0
+  fi
+
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/lib"
+  npm config set prefix "$HOME/.local" >/dev/null
+  export PATH="$HOME/.local/bin:$PATH"
+  echo "  Set npm global prefix to ~/.local"
+}
+
 install_npm_cli() {
   local command_name="$1"
   local package_name="$2"
   local npm_global_root npm_global_parent
+
+  ensure_user_npm_prefix
 
   if command -v "$command_name" >/dev/null 2>&1; then
     echo "  $command_name already installed"
     return 0
   fi
 
-  ensure_npm
   echo "  Installing $package_name..."
   npm_global_root="$(npm root -g 2>/dev/null || true)"
   npm_global_parent="$(dirname "${npm_global_root:-/}")"
