@@ -25,6 +25,7 @@ brew "fnm"
 # Python
 brew "pyenv"
 brew "pyenv-virtualenv"
+brew "uv"
 
 # DevOps & Cloud
 brew "hashicorp/tap/terraform"

@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 - **Zsh**
   - Minimal prompt with username and directory
   - Shared history across sessions (100k lines)
-  - PATH setup for pyenv, fnm, Go, Rust, Foundry, and `~/.local/bin`
+  - PATH setup for `~/.local/bin`, user scripts, pyenv, fnm when installed, Go, Rust, and Foundry
   - `gws-work` / `gws-personal` aliases for separate Google Workspace CLI profiles
 - **tmux**
   - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
 - **Terminal**
   - Ghostty config
-  - iTerm2 Option-key setup for the tmux prefix
+  - iTerm2/Ghostty Option and Command key mappings for tmux controls
 - **Claude Code**
   - Plugins: superpowers, frontend-design, workmux-status, ralph-wiggum
   - Skills: agent-browser
@@ -56,7 +56,17 @@ Install modes:
 ./install.sh pick   # interactive component picker
 ```
 
-`basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `node`/`npm`, and `cron`/`crontab`.
+`basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `python3`, `pip3`, `venv`, `uv`/`uvx`, `node`/`npm`, and `cron`/`crontab`.
+
+Node/npm setup:
+- macOS installs `fnm` from the Brewfile when Homebrew components are selected. `zshrc` initializes fnm only when it is installed.
+- Linux/basic setup uses the system package manager for `node`/`npm`; it does not install fnm.
+- Claude and Codex are installed with npm. If the active npm global directory is root-owned, `install.sh` sets npm's global prefix to `~/.local` and installs the CLIs there.
+- `~/.local/bin` is intentionally before `/usr/local/bin` and `/usr/bin` so user-owned CLI installs win over stale system/global installs.
+
+Python setup:
+- Linux/basic setup installs `python3`, `python3-pip`, `python3-venv`, and `pipx`, then installs `uv` with `pipx` when `uv` is not already available.
+- macOS full setup installs `uv` from Homebrew.
 
 After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
@@ -110,7 +120,7 @@ t clean        # remove unattached numbered projects
 | `Option+Left/Right`, `Command+Left/Right` | Switch windows |
 | `Option+Space ;` | Toggle split pane |
 | `Option+Space k` | Session picker |
-| `Option+k` | Session picker, including while nested tmux pass-through is active |
+| `Option+k`, `Command+k` | Session picker, including while nested tmux pass-through is active |
 | `Option+Space f` | Workmux dashboard |
 | `Option+Space l` | Toggle status bar |
 | `Option+Space c` | Clear screen and scrollback |

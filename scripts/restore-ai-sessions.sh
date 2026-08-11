@@ -55,6 +55,36 @@ if [ "$total" -eq 0 ]; then
   exit 0
 fi
 
+update_ai_cli() {
+  local agent_type="$1"
+
+  if ! jq -e --arg agent_type "$agent_type" 'any(.[]; .agent_type == $agent_type)' "$INPUT_FILE" >/dev/null; then
+    return 0
+  fi
+
+  if ! command -v "$agent_type" >/dev/null 2>&1; then
+    echo "  SKIP $agent_type update — command not found"
+    return 0
+  fi
+
+  if [ "$DRY_RUN" = true ]; then
+    echo "  UPDATE $agent_type — $agent_type update"
+    return 0
+  fi
+
+  echo "  UPDATE $agent_type — running '$agent_type update'"
+  if "$agent_type" update; then
+    echo "  UPDATE $agent_type — done"
+  else
+    echo "  WARNING: $agent_type update failed; continuing with restore"
+  fi
+}
+
+echo "Updating AI CLIs before session restore..."
+update_ai_cli claude
+update_ai_cli codex
+echo ""
+
 find_target_pane() {
   local tmux_session="$1" win_idx="$2" win_name="$3" pane_idx="$4"
 

@@ -160,6 +160,78 @@ ensure_npm() {
   command -v npm >/dev/null 2>&1 || die "npm still not found after install"
 }
 
+ensure_python_tooling() {
+  echo ""
+  echo "=== Python tooling ==="
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  Installing python3..."
+    if command -v brew >/dev/null 2>&1; then
+      install_packages python
+    elif command -v apt-get >/dev/null 2>&1; then
+      apt_install python3
+    else
+      die "no supported package manager found; install python3 first"
+    fi
+  else
+    echo "  python3 already installed"
+  fi
+
+  if ! command -v pip3 >/dev/null 2>&1; then
+    echo "  Installing pip3..."
+    if command -v brew >/dev/null 2>&1; then
+      install_packages python
+    elif command -v apt-get >/dev/null 2>&1; then
+      apt_install python3-pip
+    else
+      die "no supported package manager found; install pip3 first"
+    fi
+  else
+    echo "  pip3 already installed"
+  fi
+
+  if ! python3 -m venv --help >/dev/null 2>&1; then
+    echo "  Installing python3 venv support..."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt_install python3-venv
+    else
+      die "python3 venv support is unavailable; install it with your Python distribution"
+    fi
+  else
+    echo "  python3 venv support already installed"
+  fi
+
+  if command -v uv >/dev/null 2>&1 && command -v uvx >/dev/null 2>&1; then
+    echo "  uv already installed"
+  elif command -v brew >/dev/null 2>&1; then
+    echo "  Installing uv..."
+    install_packages uv
+  elif command -v apt-get >/dev/null 2>&1; then
+    if ! command -v pipx >/dev/null 2>&1; then
+      echo "  Installing pipx..."
+      apt_install pipx
+    else
+      echo "  pipx already installed"
+    fi
+    mkdir -p "$HOME/.local/bin"
+    export PATH="$HOME/.local/bin:$PATH"
+    if command -v uv >/dev/null 2>&1 && command -v uvx >/dev/null 2>&1; then
+      echo "  uv already installed"
+    else
+      echo "  Installing uv with pipx..."
+      pipx install uv
+    fi
+  else
+    die "no supported package manager found; install uv first"
+  fi
+
+  command -v python3 >/dev/null 2>&1 || die "python3 still not found after install"
+  command -v pip3 >/dev/null 2>&1 || die "pip3 still not found after install"
+  python3 -m venv --help >/dev/null 2>&1 || die "python3 venv support still unavailable after install"
+  command -v uv >/dev/null 2>&1 || die "uv still not found after install"
+  command -v uvx >/dev/null 2>&1 || die "uvx still not found after install"
+}
+
 ensure_user_npm_prefix() {
   local npm_global_root
 
@@ -222,6 +294,7 @@ ensure_basic_prereqs() {
   ensure_command zsh zsh
   ensure_command tmux tmux
   ensure_command mosh mosh
+  ensure_python_tooling
   ensure_crontab
 }
 
