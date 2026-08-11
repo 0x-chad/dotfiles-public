@@ -23,8 +23,8 @@ symlink_file() {
   [[ ! -f "$src_path" ]] && echo "  Skipping $src (not found)" && return
 
   if [[ -e "$target_path" && ! -L "$target_path" ]]; then
-    echo "  Backing up $target_path -> $target_path.backup"
-    mv "$target_path" "$target_path.backup"
+    echo "  Keeping existing $target_path"
+    return
   fi
 
   [[ -L "$target_path" ]] && rm "$target_path"
@@ -345,9 +345,8 @@ install_scripts() {
     name="$(basename "$script")"
     target="$HOME/scripts/$name"
     if [[ -e "$target" && ! -L "$target" ]]; then
-      backup="$target.backup-$(date +%Y%m%dT%H%M%S)"
-      echo "  Backing up $target -> $backup"
-      mv "$target" "$backup"
+      echo "  Keeping existing ~/scripts/$name"
+      continue
     fi
     [[ -L "$target" ]] && rm "$target"
     ln -s "$script" "$target"
@@ -428,22 +427,26 @@ install_terminal() {
   if [[ -f "$DOTFILES_DIR/config/ghostty/config" ]]; then
     mkdir -p ~/.config/ghostty
     if [[ -e ~/.config/ghostty/config && ! -L ~/.config/ghostty/config ]]; then
-      echo "  Backing up ~/.config/ghostty/config -> ~/.config/ghostty/config.backup"
-      mv ~/.config/ghostty/config ~/.config/ghostty/config.backup
+      echo "  Keeping existing ~/.config/ghostty/config"
+    else
+      [[ -L ~/.config/ghostty/config ]] && rm ~/.config/ghostty/config
+      ln -s "$DOTFILES_DIR/config/ghostty/config" ~/.config/ghostty/config
+      echo "  Linked config/ghostty/config -> ~/.config/ghostty/config"
     fi
-    [[ -L ~/.config/ghostty/config ]] && rm ~/.config/ghostty/config
-    ln -s "$DOTFILES_DIR/config/ghostty/config" ~/.config/ghostty/config
-    echo "  Linked config/ghostty/config -> ~/.config/ghostty/config"
   fi
 
   # iTerm2 preferences
   if [[ "$(uname)" == "Darwin" && -f "$DOTFILES_DIR/config/iterm2/com.googlecode.iterm2.plist" ]]; then
     mkdir -p ~/.iterm2
-    cp "$DOTFILES_DIR/config/iterm2/com.googlecode.iterm2.plist" ~/.iterm2/com.googlecode.iterm2.plist
-    defaults import com.googlecode.iterm2 ~/.iterm2/com.googlecode.iterm2.plist
-    defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
-    defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$HOME/.iterm2"
-    echo "  Copied config/iterm2/ -> ~/.iterm2/ and imported iTerm2 preferences"
+    if [[ -e ~/.iterm2/com.googlecode.iterm2.plist ]]; then
+      echo "  Keeping existing ~/.iterm2/com.googlecode.iterm2.plist"
+    else
+      cp "$DOTFILES_DIR/config/iterm2/com.googlecode.iterm2.plist" ~/.iterm2/com.googlecode.iterm2.plist
+      defaults import com.googlecode.iterm2 ~/.iterm2/com.googlecode.iterm2.plist
+      defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
+      defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$HOME/.iterm2"
+      echo "  Copied config/iterm2/ -> ~/.iterm2/ and imported iTerm2 preferences"
+    fi
   fi
 
   # Ensure Left Option key sends Esc+ for all currently installed profiles.
@@ -483,14 +486,26 @@ install_claude() {
 
   if [[ -f "$DOTFILES_DIR/config/claude/settings.json" ]]; then
     mkdir -p ~/.claude
-    cp "$DOTFILES_DIR/config/claude/settings.json" ~/.claude/settings.json
-    echo "  Copied settings.json -> ~/.claude/settings.json"
+    if [[ -e ~/.claude/settings.json ]]; then
+      echo "  Keeping existing ~/.claude/settings.json"
+    else
+      cp "$DOTFILES_DIR/config/claude/settings.json" ~/.claude/settings.json
+      echo "  Copied settings.json -> ~/.claude/settings.json"
+    fi
   fi
 
   if [[ -d "$DOTFILES_DIR/config/claude/commands" ]]; then
     mkdir -p ~/.claude/commands
-    cp "$DOTFILES_DIR/config/claude/commands/"*.md ~/.claude/commands/ 2>/dev/null
-    echo "  Copied slash commands -> ~/.claude/commands/"
+    for command_file in "$DOTFILES_DIR/config/claude/commands/"*.md; do
+      [[ -f "$command_file" ]] || continue
+      command_name="$(basename "$command_file")"
+      if [[ -e "$HOME/.claude/commands/$command_name" ]]; then
+        echo "  Keeping existing ~/.claude/commands/$command_name"
+      else
+        cp "$command_file" "$HOME/.claude/commands/$command_name"
+        echo "  Copied $command_name -> ~/.claude/commands/"
+      fi
+    done
   fi
 }
 

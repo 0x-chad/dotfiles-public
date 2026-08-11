@@ -58,6 +58,8 @@ Install modes:
 
 `basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `python3`, `pip3`, `venv`, `uv`/`uvx`, `node`/`npm`, and `cron`/`crontab`.
 
+The installer refreshes existing symlinks, but keeps existing regular files in place. Remove a local file first if you want the public dotfiles symlink to replace it.
+
 Node/npm setup:
 - macOS installs `fnm` from the Brewfile when Homebrew components are selected. `zshrc` initializes fnm only when it is installed.
 - Linux/basic setup uses the system package manager for `node`/`npm`; it does not install fnm.
