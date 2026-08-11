@@ -6,7 +6,7 @@ if [ -z "$client_tty" ] && command -v tmux >/dev/null 2>&1; then
   client_tty="$(tmux display-message -p '#{client_tty}' 2>/dev/null || true)"
 fi
 
-payload="$(perl -0pe 's/^\((.*)\),?(\n?)$/$1$2/s' | base64 | tr -d '\r\n')"
+payload="$(perl -0pe 's/\A\((.*)\)[[:punct:]]*(\n?)\z/$1$2/s or s/\)[[:punct:]]*(\n?)\z/$1/s' | base64 | tr -d '\r\n')"
 [ -n "$payload" ] || exit 0
 
 if [ -n "$client_tty" ] && [ -w "$client_tty" ]; then
