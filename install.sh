@@ -180,13 +180,24 @@ ensure_user_npm_prefix() {
 install_npm_cli() {
   local command_name="$1"
   local package_name="$2"
-  local npm_global_root npm_global_parent
+  local npm_global_root npm_global_parent npm_prefix npm_bin_dir command_path
 
   ensure_user_npm_prefix
 
-  if command -v "$command_name" >/dev/null 2>&1; then
-    echo "  $command_name already installed"
-    return 0
+  npm_prefix="$(npm config get prefix 2>/dev/null || true)"
+  npm_bin_dir="$npm_prefix/bin"
+  command_path="$(command -v "$command_name" 2>/dev/null || true)"
+
+  if [ -n "$command_path" ]; then
+    case "$command_path" in
+      "$npm_bin_dir"/*)
+        echo "  $command_name already installed"
+        return 0
+        ;;
+      *)
+        echo "  $command_name exists at $command_path; installing $package_name into $npm_prefix"
+        ;;
+    esac
   fi
 
   echo "  Installing $package_name..."
