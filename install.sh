@@ -33,6 +33,34 @@ symlink_file() {
   ln -s "$src_path" "$target_path"
 }
 
+copy_seed_file() {
+  local src="$1" target="$2"
+  local src_path="$DOTFILES_DIR/$src"
+  local target_path="$HOME/$target"
+
+  [[ ! -f "$src_path" ]] && echo "  Skipping $src (not found)" && return
+
+  mkdir -p "$(dirname "$target_path")"
+
+  if [[ -L "$target_path" ]]; then
+    local tmp
+    tmp="$(mktemp)"
+    cp "$target_path" "$tmp"
+    rm "$target_path"
+    mv "$tmp" "$target_path"
+    echo "  Converted $target_path symlink to local file"
+    return
+  fi
+
+  if [[ -e "$target_path" ]]; then
+    echo "  Keeping existing $target_path"
+    return
+  fi
+
+  cp "$src_path" "$target_path"
+  echo "  Copied $src -> $target_path"
+}
+
 clone_plugin() {
   local name="$1"
   local repo="$2"
@@ -515,8 +543,7 @@ install_codex() {
   install_npm_cli codex "@openai/codex"
 
   if [[ -f "$DOTFILES_DIR/config/codex/config.toml" ]]; then
-    mkdir -p ~/.codex
-    symlink_file "config/codex/config.toml" ".codex/config.toml"
+    copy_seed_file "config/codex/config.toml" ".codex/config.toml"
   fi
 }
 

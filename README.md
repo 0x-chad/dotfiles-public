@@ -86,7 +86,7 @@ config/
     container/                          # Dev container (Dockerfile, build/run scripts)
     settings.json                       # Claude settings
     setup.sh                            # Post-login plugin/MCP setup
-  codex/config.toml   -> ~/.codex/config.toml
+  codex/config.toml                     # Seeded to ~/.codex/config.toml when missing
   ghostty/config      -> ~/.config/ghostty/config
   iterm2/com.googlecode.iterm2.plist    # iTerm2 preferences
   osx/osx-config.sh                     # macOS system preferences
