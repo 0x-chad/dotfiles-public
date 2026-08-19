@@ -13,7 +13,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Minimal prompt with username and directory
   - Shared history across sessions (100k lines)
   - PATH setup for `~/.local/bin`, user scripts, pyenv, fnm when installed, Go, Rust, and Foundry
-  - `gws-work` / `gws-personal` aliases for separate Google Workspace CLI profiles
+  - Bare `gws` guard that requires an account-specific wrapper defined locally
 - **tmux**
   - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
   - `t` command for named project sessions
@@ -57,6 +57,21 @@ Install modes:
 ```
 
 `basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `python3`, `pip3`, `venv`, `uv`/`uvx`, `node`/`npm`, and `cron`/`crontab`.
+
+Google Workspace CLI setup:
+- The public config defines a bare `gws` guard that exits instead of selecting credentials implicitly.
+- Run `gws setup-help` (also available as `gws help` or `gws --help`) for the generic multi-account setup instructions.
+- Define wrappers for the accounts you actually use in private/local shell config. The wrapper should set a separate `GOOGLE_WORKSPACE_CLI_CONFIG_DIR` and invoke `command gws`.
+- Example template:
+
+  ```zsh
+  gws_account_name() {
+    GOOGLE_WORKSPACE_CLI_CONFIG_DIR="$HOME/.config/gws-account_name" command gws "$@"
+  }
+  ```
+
+  Replace `account_name` with an account identifier and repeat for each account.
+- The dotfiles do not install the Google Workspace CLI package or store credentials.
 
 The installer refreshes existing symlinks, but keeps existing regular files in place. Remove a local file first if you want the public dotfiles symlink to replace it.
 
@@ -111,6 +126,10 @@ t --select     # pick a session with fzf and run normal cleanup
 t a            # reattach to last project
 t clean        # remove unattached numbered projects
 ```
+
+**Google Workspace CLI**
+
+The bare `gws` command intentionally fails. Define account-specific wrappers in private/local shell config using the template in the setup section, then invoke those wrappers.
 
 ## Keybindings (tmux)
 
