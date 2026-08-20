@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPTS_DIR/tmux-restore-pane.sh"
+
 INPUT_FILE="${TMUX_MOSH_SESSIONS_FILE:-$HOME/.tmux-mosh-sessions.json}"
 DRY_RUN=false
 DELAY="${DELAY:-1}"
@@ -22,26 +25,6 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "Error: jq is required." >&2
   exit 1
 fi
-
-find_target_pane() {
-  local tmux_session="$1" win_idx="$2" win_name="$3" pane_idx="$4"
-  local found_win
-
-  if tmux list-panes -t "=${tmux_session}:${win_idx}" -F '#{pane_index}' 2>/dev/null | grep -qx "$pane_idx"; then
-    echo "=${tmux_session}:${win_idx}.${pane_idx}"
-    return 0
-  fi
-
-  found_win=$(tmux list-windows -t "=$tmux_session" -F '#{window_index}|#{window_name}' 2>/dev/null \
-    | grep "|${win_name}$" | head -1 | cut -d'|' -f1)
-  if [ -n "$found_win" ] &&
-     tmux list-panes -t "=${tmux_session}:${found_win}" -F '#{pane_index}' 2>/dev/null | grep -qx "$pane_idx"; then
-    echo "=${tmux_session}:${found_win}.${pane_idx}"
-    return 0
-  fi
-
-  return 1
-}
 
 pane_has_mosh() {
   local target="$1" pane_pid pid args
@@ -87,6 +70,7 @@ for i in $(seq 0 $((total - 1))); do
   win_idx=$(jq -r ".[$i].window_index" "$INPUT_FILE")
   win_name=$(jq -r ".[$i].window_name" "$INPUT_FILE")
   pane_idx=$(jq -r ".[$i].pane_index" "$INPUT_FILE")
+  cwd=$(jq -r ".[$i].cwd" "$INPUT_FILE")
   command=$(jq -r ".[$i].command" "$INPUT_FILE")
   label="$tmux_session/$win_name"
 
@@ -99,7 +83,15 @@ for i in $(seq 0 $((total - 1))); do
       ;;
   esac
 
-  target=$(find_target_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
+  if [ "$DRY_RUN" != true ]; then
+    if ! tmux_restore_ensure_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" "$cwd"; then
+      echo "  SKIP $label — could not create target pane"
+      skipped=$((skipped + 1))
+      continue
+    fi
+  fi
+
+  target=$(tmux_restore_find_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
   if [ -z "$target" ]; then
     echo "  SKIP $label — pane not found"
     skipped=$((skipped + 1))

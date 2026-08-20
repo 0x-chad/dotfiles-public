@@ -22,6 +22,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Nested tmux pass-through with `Command+l`
   - Status bar toggle with `Option+Space l`
   - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
+  - `restore-tmux.sh` recreates saved mosh and AI targets when resurrect missed their panes, runs them under zsh, and leaves zsh behind when they exit
 - **Terminal**
   - Ghostty config
   - iTerm2/Ghostty Option and Command key mappings for tmux controls

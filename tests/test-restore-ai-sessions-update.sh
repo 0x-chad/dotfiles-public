@@ -48,6 +48,22 @@ wait_for_line() {
   return 1
 }
 
+wait_for_pane_command() {
+  local target="$1"
+  local expected="$2"
+  local attempts=100
+
+  while [ "$attempts" -gt 0 ]; do
+    if [ "$(tmux -L "$socket_name" list-panes -t "$target" -F '#{pane_current_command}' 2>/dev/null)" = "$expected" ]; then
+      return 0
+    fi
+    sleep 0.05
+    attempts=$((attempts - 1))
+  done
+
+  return 1
+}
+
 mkdir -p "$home_dir" "$bin_dir" "$socket_dir"
 chmod 700 "$socket_dir"
 
@@ -69,7 +85,7 @@ exec "$real_tmux" -L "$socket_name" "\$@"
 STUB
 chmod +x "$bin_dir/tmux"
 
-printf -v pane_command 'env PATH=%q AI_UPDATE_TEST_LOG=%q bash --noprofile --norc' "$bin_dir:$PATH" "$log_file"
+printf -v pane_command 'env HOME=%q PATH=%q AI_UPDATE_TEST_LOG=%q zsh -i' "$home_dir" "$bin_dir:$PATH" "$log_file"
 tmux -L "$socket_name" new-session -d -s ai -n claude-pane "$pane_command"
 tmux -L "$socket_name" new-window -t "=ai" -n codex-pane "$pane_command"
 tmux -L "$socket_name" set-environment -g PATH "$bin_dir:$PATH"
@@ -113,6 +129,10 @@ wait_for_line "claude --resume claude-session" ||
   fail "claude resume did not run"
 wait_for_line "codex resume 019e25fb-a490-7760-823e-8846b212f28f" ||
   fail "codex resume did not run"
+wait_for_pane_command '=ai:0.0' zsh ||
+  fail "Claude pane did not remain in zsh"
+wait_for_pane_command '=ai:1.0' zsh ||
+  fail "Codex pane did not remain in zsh"
 
 claude_update_line=$(grep -nx "claude update" "$log_file" | cut -d: -f1)
 codex_update_line=$(grep -nx "codex update" "$log_file" | cut -d: -f1)

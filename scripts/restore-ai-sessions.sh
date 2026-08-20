@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPTS_DIR/tmux-restore-pane.sh"
+
 INPUT_FILE="$HOME/.tmux-ai-sessions.json"
 DRY_RUN=false
 DELAY="${DELAY:-2}"  # seconds between launching sessions
@@ -85,30 +88,6 @@ update_ai_cli claude
 update_ai_cli codex
 echo ""
 
-find_target_pane() {
-  local tmux_session="$1" win_idx="$2" win_name="$3" pane_idx="$4"
-
-  # Try exact match first: session:window_index.pane_index
-  if tmux list-panes -t "=${tmux_session}:${win_idx}" -F '#{pane_index}' 2>/dev/null | grep -qx "$pane_idx"; then
-    echo "=${tmux_session}:${win_idx}.${pane_idx}"
-    return 0
-  fi
-
-  # Fallback: find window by name, then check pane index
-  local found_win
-  found_win=$(tmux list-windows -t "=$tmux_session" -F '#{window_index}|#{window_name}' 2>/dev/null \
-    | grep "|${win_name}$" | head -1 | cut -d'|' -f1)
-
-  if [ -n "$found_win" ]; then
-    if tmux list-panes -t "=${tmux_session}:${found_win}" -F '#{pane_index}' 2>/dev/null | grep -qx "$pane_idx"; then
-      echo "=${tmux_session}:${found_win}.${pane_idx}"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
 for i in $(seq 0 $((total - 1))); do
   tmux_session=$(jq -r ".[$i].tmux_session" "$INPUT_FILE")
   win_idx=$(jq -r ".[$i].window_index" "$INPUT_FILE")
@@ -120,15 +99,15 @@ for i in $(seq 0 $((total - 1))); do
 
   label=$(pane_label "$tmux_session" "$win_name" "$pane_idx" "$win_idx")
 
-  # Verify the tmux session exists
-  if ! tmux has-session -t "=$tmux_session" 2>/dev/null; then
-    echo "  SKIP $label — tmux session does not exist"
-    failed=$((failed + 1))
-    continue
+  if [ "$DRY_RUN" != true ]; then
+    if ! tmux_restore_ensure_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" "$cwd"; then
+      echo "  SKIP $label — could not create target pane"
+      failed=$((failed + 1))
+      continue
+    fi
   fi
 
-  # Find the target pane (with fallback to window name matching)
-  target=$(find_target_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
+  target=$(tmux_restore_find_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
   if [ -z "$target" ]; then
     echo "  SKIP $label — pane not found"
     failed=$((failed + 1))
@@ -154,8 +133,9 @@ for i in $(seq 0 $((total - 1))); do
     fi
   fi
 
-  # Build the resume command
-  # Note: claude alias already adds --dangerously-skip-permissions and --chrome
+  # Build the resume command. The pane is the configured tmux default shell,
+  # which is zsh in the public tmux config, so the shell remains after resume
+  # exits.
   resume_cmd=""
   if [ "$agent_type" = "claude" ]; then
     resume_cmd="cd \"$cwd\" && claude --resume $session_id"
