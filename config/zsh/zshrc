@@ -116,10 +116,18 @@ fi
 
 # Auto-start tmux for new terminal tabs/SSH sessions
 # Each new tab gets its own unique session (numbered 0, 1, 2, etc.)
-if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]] && [[ -t 0 ]] && [[ -t 1 ]]; then
-  if [[ -n "$TERM_PROGRAM" || -n "$SSH_CONNECTION" ]]; then
+if [[ -o interactive ]] && [[ -t 0 ]] && [[ -n "$TERM_PROGRAM" || -n "$SSH_CONNECTION" ]]; then
+  typeset _current_tty="$(tty)"
+  typeset _tmux_pane_tty=""
+  if [[ -n "$TMUX" && -n "$TMUX_PANE" ]]; then
+    _tmux_pane_tty="$(tmux display-message -p -t "$TMUX_PANE" '#{pane_tty}' 2>/dev/null)"
+  fi
+
+  if [[ -z "$TMUX" || "$_current_tty" != "$_tmux_pane_tty" ]]; then
+    unset TMUX TMUX_PANE
     tmux new-session
   fi
+  unset _current_tty _tmux_pane_tty
 fi
 
 # bun completions
