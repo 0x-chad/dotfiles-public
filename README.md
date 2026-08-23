@@ -27,6 +27,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Ghostty config
   - iTerm2/Ghostty Option and Command key mappings for tmux controls
 - **Claude Code**
+  - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
   - Plugins: superpowers, frontend-design, workmux-status, ralph-wiggum
   - Skills: agent-browser
   - Commands: commit, clean, precommit, consensus, learn, better-prompt

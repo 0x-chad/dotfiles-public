@@ -515,7 +515,23 @@ install_claude() {
   if [[ -f "$DOTFILES_DIR/config/claude/settings.json" ]]; then
     mkdir -p ~/.claude
     if [[ -e ~/.claude/settings.json ]]; then
-      echo "  Keeping existing ~/.claude/settings.json"
+      node - "$DOTFILES_DIR/config/claude/settings.json" "$HOME/.claude/settings.json" <<'NODE'
+const fs = require("fs");
+const [sourcePath, targetArg] = process.argv.slice(2);
+const source = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
+const target = JSON.parse(fs.readFileSync(targetArg, "utf8"));
+const retention = source.cleanupPeriodDays;
+if (!Number.isInteger(retention) || retention < 1) {
+  throw new Error("public cleanupPeriodDays must be a positive integer");
+}
+target.cleanupPeriodDays = retention;
+const targetPath = fs.realpathSync(targetArg);
+const mode = fs.statSync(targetPath).mode & 0o777;
+const tempPath = `${targetPath}.tmp-${process.pid}`;
+fs.writeFileSync(tempPath, `${JSON.stringify(target, null, 2)}\n`, { mode });
+fs.renameSync(tempPath, targetPath);
+NODE
+      echo "  Applied public Claude session retention to existing ~/.claude/settings.json"
     else
       cp "$DOTFILES_DIR/config/claude/settings.json" ~/.claude/settings.json
       echo "  Copied settings.json -> ~/.claude/settings.json"
