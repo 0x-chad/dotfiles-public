@@ -282,8 +282,14 @@ else
 fi
 
 if [ "${TMUX_RESTORE_WORKER:-0}" != "1" ] && [ "$DRY_RUN" != true ]; then
-  launch_restore_worker "$@"
-  exit $?
+  worker_status=0
+  launch_restore_worker "$@" || worker_status=$?
+  # The restore worker can replace the tmux server while restoring. Unlock from
+  # the parent after it exits so autosave records the final server identity.
+  if tmux list-sessions >/dev/null 2>&1 && [ -x "$AUTOSAVE_UNLOCK" ]; then
+    "$AUTOSAVE_UNLOCK" >/dev/null 2>&1 || true
+  fi
+  exit "$worker_status"
 fi
 
 # Step 1: Restore tmux layout
