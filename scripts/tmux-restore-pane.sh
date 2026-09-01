@@ -39,7 +39,7 @@ tmux_restore_ensure_pane() {
   [ -d "$cwd" ] || cwd="$HOME"
 
   if ! tmux has-session -t "=${session}" 2>/dev/null; then
-    tmux new-session -d -s "$session" -n "$window_name" -c "$cwd" zsh
+    tmux new-session -d -s "$session" -n "$window_name" -c "$cwd" zsh || return 1
     first_window=$(tmux list-windows -t "=${session}" -F '#{window_index}' 2>/dev/null | head -1)
     if [ -n "$first_window" ] && [ "$first_window" != "$window" ]; then
       tmux move-window -s "=${session}:${first_window}" -t "=${session}:${window}"
@@ -47,12 +47,12 @@ tmux_restore_ensure_pane() {
   fi
 
   if ! tmux_restore_window_exists "$session" "$window"; then
-    tmux new-window -d -t "=${session}:${window}" -n "$window_name" -c "$cwd" zsh
+    tmux new-window -d -t "=${session}:${window}" -n "$window_name" -c "$cwd" zsh || return 1
   fi
 
   while ! tmux_restore_pane_exists "$session" "$window" "$pane"; do
     last_pane=$(tmux list-panes -t "=${session}:${window}" -F '#{pane_index}' 2>/dev/null | tail -1)
     [ -n "$last_pane" ] || return 1
-    tmux split-window -d -t "=${session}:${window}.${last_pane}" -c "$cwd" zsh
+    tmux split-window -d -t "=${session}:${window}.${last_pane}" -c "$cwd" zsh || return 1
   done
 }

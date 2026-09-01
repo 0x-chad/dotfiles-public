@@ -123,6 +123,39 @@ extract_codex_session_id_from_args() {
   return 1
 }
 
+process_start_epoch() {
+  local pid="$1" start
+  start=$(ps -p "$pid" -o lstart= 2>/dev/null || true)
+  [ -n "$start" ] || return 1
+  date -d "$start" +%s 2>/dev/null
+}
+
+extract_fork_session_id() {
+  local pid="$1" pane_path="$2" start_epoch window_start window_end file meta
+  local session_id session_cwd session_timestamp session_epoch delta
+
+  start_epoch=$(process_start_epoch "$pid" || true)
+  [ -n "$start_epoch" ] || return 1
+  window_start=$(date -d "@$((start_epoch - 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || true)
+  window_end=$(date -d "@$((start_epoch + 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || true)
+  [ -n "$window_start" ] && [ -n "$window_end" ] || return 1
+
+  while IFS= read -r file; do
+    meta=$(head -1 "$file" | jq -r '[.payload.id,.payload.cwd,.payload.timestamp] | @tsv' 2>/dev/null || true)
+    IFS=$'\t' read -r session_id session_cwd session_timestamp <<< "$meta"
+    [ -n "$session_id" ] && [ "$session_cwd" = "$pane_path" ] || continue
+    session_epoch=$(date -d "$session_timestamp" +%s 2>/dev/null || true)
+    [ -n "$session_epoch" ] || continue
+    delta=$((session_epoch - start_epoch))
+    [ "$delta" -ge -120 ] && [ "$delta" -le 120 ] || continue
+    printf '%s\n' "$session_id"
+    return 0
+  done < <(find "$HOME/.codex/sessions" -type f -name '*.jsonl' \
+    -newermt "$window_start" ! -newermt "$window_end" -print 2>/dev/null)
+
+  return 1
+}
+
 query_codex_log_db() {
   local db="$1" pid="$2"
   local query="select thread_id from logs where process_uuid like 'pid:$pid:%' and thread_id is not null order by ts desc, ts_nanos desc, id desc limit 1;"
@@ -157,7 +190,7 @@ PY
 }
 
 extract_codex_session_id() {
-  local pane_pid="$1" pid args sid db
+  local pane_pid="$1" pane_path="${2:-}" pid args sid db
 
   for pid in $(process_tree "$pane_pid"); do
     args=$(ps_args "$pid")
@@ -177,6 +210,15 @@ extract_codex_session_id() {
     args=$(ps_args "$pid")
     [ -z "$args" ] && continue
     echo "$args" | grep -Eq '(^|[ /])codex([[:space:]]|$)' || continue
+
+    if echo "$args" | grep -Eq '(^|[ /])codex[[:space:]]+fork([[:space:]]|$)' && [ -n "$pane_path" ]; then
+      sid=$(extract_fork_session_id "$pid" "$pane_path" || true)
+      if [ -n "$sid" ]; then
+        echo "$sid"
+        return 0
+      fi
+    fi
+
     echo "$args" | grep -q 'node_modules/@openai/codex' || continue
 
     sid=$(query_codex_log_db "$db" "$pid" | grep -oE "$UUID_RE" | head -1 || true)
@@ -246,7 +288,7 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
   if [ "$agent_type" = "claude" ]; then
     session_id=$(extract_claude_session_id "$pane_pid" || true)
   elif [ "$agent_type" = "codex" ]; then
-    session_id=$(extract_codex_session_id "$pane_pid" || true)
+    session_id=$(extract_codex_session_id "$pane_pid" "$pane_path" || true)
   fi
 
   PANE_IDS+=("$pane_id")

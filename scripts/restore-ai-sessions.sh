@@ -16,6 +16,7 @@ source "$SCRIPTS_DIR/tmux-restore-pane.sh"
 INPUT_FILE="$HOME/.tmux-ai-sessions.json"
 DRY_RUN=false
 DELAY="${DELAY:-2}"  # seconds between launching sessions
+RESUME_TIMEOUT="${RESUME_TIMEOUT:-20}"  # seconds to verify a resumed process
 
 for arg in "$@"; do
   case "$arg" in
@@ -41,6 +42,32 @@ pane_label() {
     name="$name.$pidx"
   fi
   echo "$name"
+}
+
+codex_rollout_exists() {
+  local session_id="$1"
+  [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
+  find "$HOME/.codex/sessions" "$HOME/.codex/archived_sessions" \
+    -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
+}
+
+agent_running_in_pane() {
+  local target="$1" pane_pid
+  pane_pid=$(tmux list-panes -t "$target" -F '#{pane_pid}' 2>/dev/null | head -1)
+  [ -n "$pane_pid" ] || return 1
+  pgrep -P "$pane_pid" -f '/(codex|claude)( |$)' >/dev/null 2>&1
+}
+
+wait_for_agent() {
+  local target="$1" attempts=$((RESUME_TIMEOUT * 2))
+  while [ "$attempts" -gt 0 ]; do
+    if agent_running_in_pane "$target"; then
+      return 0
+    fi
+    sleep 0.5
+    attempts=$((attempts - 1))
+  done
+  return 1
 }
 
 echo "Restoring AI sessions from $INPUT_FILE"
@@ -99,15 +126,22 @@ for i in $(seq 0 $((total - 1))); do
 
   label=$(pane_label "$tmux_session" "$win_name" "$pane_idx" "$win_idx")
 
-  if [ "$DRY_RUN" != true ]; then
+  if [ "$agent_type" = "codex" ] && ! codex_rollout_exists "$session_id"; then
+    echo "  SKIP $label — saved Codex session not found: $session_id"
+    failed=$((failed + 1))
+    continue
+  fi
+
+  target=$(tmux_restore_find_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
+  if [ -z "$target" ] && [ "$DRY_RUN" != true ]; then
     if ! tmux_restore_ensure_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" "$cwd"; then
       echo "  SKIP $label — could not create target pane"
       failed=$((failed + 1))
       continue
     fi
+    target=$(tmux_restore_find_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
   fi
 
-  target=$(tmux_restore_find_pane "$tmux_session" "$win_idx" "$win_name" "$pane_idx" || true)
   if [ -z "$target" ]; then
     echo "  SKIP $label — pane not found"
     failed=$((failed + 1))
@@ -147,8 +181,14 @@ for i in $(seq 0 $((total - 1))); do
     echo "  $label [$agent_type] $session_id"
     echo "    -> $resume_cmd"
   else
-    echo "  OK $label [$agent_type]"
     tmux send-keys -t "$target" "$resume_cmd" Enter
+    if wait_for_agent "$target"; then
+      echo "  OK $label [$agent_type]"
+    else
+      echo "  FAIL $label [$agent_type] — resume exited or did not start"
+      failed=$((failed + 1))
+      continue
+    fi
     sleep "$DELAY"
   fi
 
