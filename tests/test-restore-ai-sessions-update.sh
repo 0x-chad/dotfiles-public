@@ -64,18 +64,20 @@ wait_for_pane_command() {
   return 1
 }
 
-mkdir -p "$home_dir" "$bin_dir" "$socket_dir"
+mkdir -p "$home_dir/.codex/sessions/2026/09/03" "$bin_dir" "$socket_dir"
 chmod 700 "$socket_dir"
 
 cat > "$bin_dir/claude" <<'STUB'
 #!/bin/bash
 echo "claude $*" >> "$AI_UPDATE_TEST_LOG"
+[ "${1:-}" = "update" ] || sleep 1
 STUB
 chmod +x "$bin_dir/claude"
 
 cat > "$bin_dir/codex" <<'STUB'
 #!/bin/bash
 echo "codex $*" >> "$AI_UPDATE_TEST_LOG"
+[ "${1:-}" = "update" ] || sleep 1
 STUB
 chmod +x "$bin_dir/codex"
 
@@ -113,6 +115,8 @@ cat > "$home_dir/.tmux-ai-sessions.json" <<'JSON'
   }
 ]
 JSON
+
+touch "$home_dir/.codex/sessions/2026/09/03/rollout-test-019e25fb-a490-7760-823e-8846b212f28f.jsonl"
 
 HOME="$home_dir" \
 PATH="$bin_dir:$PATH" \

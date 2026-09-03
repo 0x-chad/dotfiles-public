@@ -43,6 +43,13 @@ require_jq() {
   fi
 }
 
+codex_rollout_exists() {
+  local session_id="$1"
+  [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
+  find "$HOME/.codex/sessions" "$HOME/.codex/archived_sessions" \
+    -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
+}
+
 should_skip_session() {
   local sess="$1" skip
   for skip in "${SKIP_SESSIONS[@]+"${SKIP_SESSIONS[@]}"}"; do
@@ -262,7 +269,7 @@ append_entry() {
 
 require_jq
 
-declare -a PANE_IDS=() PANE_LABELS=() PANE_TYPES=() PANE_SESSION_IDS=()
+declare -a PANE_IDS=() PANE_LABELS=() PANE_TYPES=() PANE_SESSION_IDS=() PANE_ERRORS=()
 declare -a PANE_SESSIONS=() PANE_WINIDX=() PANE_WINNAMES=() PANE_PANEIDX=() PANE_PATHS=()
 
 while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pane_id; do
@@ -271,6 +278,7 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
 
   agent_type=""
   session_id=""
+  session_error=""
 
   for pid in $(process_tree "$pane_pid"); do
     args=$(ps_args "$pid")
@@ -289,12 +297,17 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
     session_id=$(extract_claude_session_id "$pane_pid" || true)
   elif [ "$agent_type" = "codex" ]; then
     session_id=$(extract_codex_session_id "$pane_pid" "$pane_path" || true)
+    if [ -n "$session_id" ] && ! codex_rollout_exists "$session_id"; then
+      session_error="session ID $session_id has no saved rollout"
+      session_id=""
+    fi
   fi
 
   PANE_IDS+=("$pane_id")
   PANE_LABELS+=("$(pane_label "$sess_name" "$win_name" "$pane_idx" "$win_idx")")
   PANE_TYPES+=("$agent_type")
   PANE_SESSION_IDS+=("$session_id")
+  PANE_ERRORS+=("$session_error")
   PANE_SESSIONS+=("$sess_name")
   PANE_WINIDX+=("$win_idx")
   PANE_WINNAMES+=("$win_name")
@@ -328,7 +341,11 @@ done
 
 if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" != true ]; then
   for idx in "${unresolved[@]}"; do
-    echo "  MISS ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] — use --probe-status to query the chat"
+    if [ -n "${PANE_ERRORS[$idx]}" ]; then
+      echo "  MISS ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] — ${PANE_ERRORS[$idx]}"
+    else
+      echo "  MISS ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] — use --probe-status to query the chat"
+    fi
     skipped=$((skipped + 1))
   done
 fi
@@ -336,6 +353,9 @@ fi
 if [ "$DRY_RUN" = true ]; then
   echo ""
   echo "DRY RUN — identified $found/$total sessions ($skipped missed)."
+  if [ "$found" -ne "$total" ]; then
+    exit 1
+  fi
   exit 0
 fi
 
@@ -394,10 +414,18 @@ if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" = true ]; then
     elif [ "$agent_type" = "codex" ]; then
       session_id=$(echo "$pane_content" | grep -i "Session:" | tail -1 | grep -oE "$UUID_RE" || true)
       tmux send-keys -t "${PANE_IDS[$idx]}" q
+      if [ -n "$session_id" ] && ! codex_rollout_exists "$session_id"; then
+        PANE_ERRORS[$idx]="session ID $session_id has no saved rollout"
+        session_id=""
+      fi
     fi
 
     if [ -z "$session_id" ]; then
-      echo "  MISS ${PANE_LABELS[$idx]} [$agent_type]"
+      if [ -n "${PANE_ERRORS[$idx]}" ]; then
+        echo "  MISS ${PANE_LABELS[$idx]} [$agent_type] — ${PANE_ERRORS[$idx]}"
+      else
+        echo "  MISS ${PANE_LABELS[$idx]} [$agent_type]"
+      fi
       skipped=$((skipped + 1))
     else
       echo "  OK   ${PANE_LABELS[$idx]} [$agent_type] $session_id"
@@ -409,9 +437,14 @@ if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" = true ]; then
   done
 fi
 
-if [ "$found" -eq 0 ] && [ "$total" -gt 0 ] && [ -s "$OUTPUT_FILE" ] && [ "$(jq length "$OUTPUT_FILE" 2>/dev/null || echo 0)" -gt 0 ]; then
+if [ "$found" -ne "$total" ]; then
   echo ""
-  echo "WARNING: identified 0/$total sessions; preserving existing non-empty manifest at $OUTPUT_FILE"
+  echo "ERROR: only $found/$total AI sessions have resumable saved state."
+  if [ -s "$OUTPUT_FILE" ]; then
+    echo "Preserving existing manifest at $OUTPUT_FILE"
+  else
+    echo "No manifest written."
+  fi
   exit 1
 fi
 
