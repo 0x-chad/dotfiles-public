@@ -8,7 +8,7 @@ socket_path="$socket_root/tmux-$(id -u)/default"
 old_server_pid=""
 
 cleanup() {
-  TMUX_TMPDIR="$socket_root" tmux kill-server 2>/dev/null || true
+  tmux -S "$socket_path" kill-server 2>/dev/null || true
   if [ -n "$old_server_pid" ]; then
     kill -KILL "$old_server_pid" 2>/dev/null || true
   fi
@@ -19,7 +19,7 @@ trap cleanup EXIT
 mkdir -p "$test_dir/home/.tmux/plugins/tmux-resurrect/scripts"
 mkdir -p "$test_dir/home/.tmux/resurrect"
 mkdir -p "$test_dir/scripts"
-mkdir -p "$socket_root"
+mkdir -p "$(dirname "$socket_path")"
 ln -s "$REPO_DIR/scripts/restore-tmux.sh" "$test_dir/scripts/restore-tmux.sh"
 
 printf 'pane\trestored\t0\t1\t:*\t0\ttest\t:/tmp\t1\tzsh\t:\n' \
@@ -40,8 +40,8 @@ HELPER
   chmod +x "$test_dir/scripts/$helper"
 done
 
-TMUX_TMPDIR="$socket_root" tmux new-session -d -s orphan 'exec sleep 60'
-old_server_pid="$(TMUX_TMPDIR="$socket_root" tmux display-message -p '#{pid}')"
+tmux -S "$socket_path" new-session -d -s orphan 'exec sleep 60'
+old_server_pid="$(tmux -S "$socket_path" display-message -p '#{pid}')"
 rm "$socket_path"
 
 if ! kill -0 "$old_server_pid" 2>/dev/null; then
@@ -58,6 +58,8 @@ if ! env -u TMUX HOME="$test_dir/home" TMUX_TMPDIR="$socket_root" \
 fi
 
 if kill -0 "$old_server_pid" 2>/dev/null; then
+  sed -n '1,240p' "$output_file" >&2
+  ps -p "$old_server_pid" -o pid,stat,comm >&2
   echo "FAIL: unreachable tmux server was not terminated" >&2
   exit 1
 fi
@@ -68,7 +70,7 @@ grep -q "Found unreachable tmux server PID $old_server_pid" "$output_file" || {
   exit 1
 }
 
-TMUX_TMPDIR="$socket_root" tmux has-session -t '=restored' 2>/dev/null || {
+tmux -S "$socket_path" has-session -t '=restored' 2>/dev/null || {
   sed -n '1,240p' "$output_file" >&2
   echo "FAIL: replacement tmux server did not restore the saved session" >&2
   exit 1

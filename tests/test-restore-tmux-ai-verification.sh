@@ -6,7 +6,7 @@ test_dir="$(mktemp -d)"
 socket_root="$test_dir/tmux-tmp"
 
 cleanup() {
-  TMUX_TMPDIR="$socket_root" tmux kill-server 2>/dev/null || true
+  tmux -S "$socket_root/tmux-$(id -u)/default" kill-server 2>/dev/null || true
   rm -rf "$test_dir"
 }
 trap cleanup EXIT

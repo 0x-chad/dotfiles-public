@@ -77,9 +77,10 @@ cleanup_orphaned_tmux_servers() {
   socket_path="$(tmux_default_socket_path)"
   reachable_pid="$(tmux -S "$socket_path" display-message -p '#{pid}' 2>/dev/null || true)"
 
-  for candidate in $(pgrep -x tmux 2>/dev/null || true); do
+  for candidate in $(pgrep -x 'tmux|tmux: server' 2>/dev/null || true); do
     [ "$candidate" = "$reachable_pid" ] && continue
-    if lsof -a -p "$candidate" -U -Fn 2>/dev/null | grep -Fxq "n$socket_path"; then
+    if lsof -a -p "$candidate" -U -Fn 2>/dev/null |
+        awk -v path="n$socket_path" '$0 == path || $0 == path " type=STREAM" { found = 1 } END { exit !found }'; then
       terminate_orphaned_tmux_server "$candidate"
     fi
   done
@@ -286,7 +287,7 @@ if [ "${TMUX_RESTORE_WORKER:-0}" != "1" ] && [ "$DRY_RUN" != true ]; then
   launch_restore_worker "$@" || worker_status=$?
   # The restore worker can replace the tmux server while restoring. Unlock from
   # the parent after it exits so autosave records the final server identity.
-  if tmux list-sessions >/dev/null 2>&1 && [ -x "$AUTOSAVE_UNLOCK" ]; then
+  if [ "$worker_status" -eq 0 ] && tmux list-sessions >/dev/null 2>&1 && [ -x "$AUTOSAVE_UNLOCK" ]; then
     "$AUTOSAVE_UNLOCK" >/dev/null 2>&1 || true
   fi
   exit "$worker_status"
@@ -348,9 +349,8 @@ else
 fi
 
 echo ""
-if [ "$restore_status" -eq 0 ] && [ "$DRY_RUN" != true ] && [ -x "$AUTOSAVE_UNLOCK" ]; then
-  # A single AI session may fail to resume without invalidating the restored
-  # tmux layout. Unlock autosave once the layout itself is available.
+if [ "$restore_status" -eq 0 ] && [ "$mosh_status" -eq 0 ] && [ "$ai_status" -eq 0 ] && [ "$DRY_RUN" != true ] && [ -x "$AUTOSAVE_UNLOCK" ]; then
+  # Preserve the previous manifest until all saved agents are restored.
   "$AUTOSAVE_UNLOCK" >/dev/null 2>&1 || true
 fi
 

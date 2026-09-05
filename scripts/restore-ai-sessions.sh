@@ -51,17 +51,48 @@ codex_rollout_exists() {
     -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
 }
 
-agent_running_in_pane() {
-  local target="$1" pane_pid
+children_of() {
+  pgrep -P "$1" 2>/dev/null || true
+}
+
+process_tree() {
+  local root="$1" child
+  echo "$root"
+  for child in $(children_of "$root"); do
+    process_tree "$child"
+  done
+}
+
+agent_process_in_pane() {
+  local target="$1" expected_type="${2:-}" expected_id="${3:-}"
+  local pane_pid pid args
   pane_pid=$(tmux list-panes -t "$target" -F '#{pane_pid}' 2>/dev/null | head -1)
   [ -n "$pane_pid" ] || return 1
-  pgrep -P "$pane_pid" -f '/(codex|claude)( |$)' >/dev/null 2>&1
+
+  for pid in $(process_tree "$pane_pid"); do
+    [ "$pid" = "$pane_pid" ] && continue
+    args=$(ps -p "$pid" -o command= 2>/dev/null || true)
+    [ -n "$args" ] || continue
+
+    if [ -n "$expected_type" ]; then
+      echo "$args" | grep -Eq "(^|[ /])${expected_type}([[:space:]]|$)" || continue
+    else
+      echo "$args" | grep -Eq '(^|[ /])(codex|claude)([[:space:]]|$)' || continue
+    fi
+
+    if [ -n "$expected_id" ]; then
+      echo "$args" | grep -Fq -- "$expected_id" || continue
+    fi
+    return 0
+  done
+
+  return 1
 }
 
 wait_for_agent() {
-  local target="$1" attempts=$((RESUME_TIMEOUT * 2))
+  local target="$1" agent_type="$2" session_id="$3" attempts=$((RESUME_TIMEOUT * 2))
   while [ "$attempts" -gt 0 ]; do
-    if agent_running_in_pane "$target"; then
+    if agent_process_in_pane "$target" "$agent_type" "$session_id"; then
       return 0
     fi
     sleep 0.5
@@ -148,23 +179,15 @@ for i in $(seq 0 $((total - 1))); do
     continue
   fi
 
-  # Skip if pane already has Claude/Codex running
-  target_pid=$(tmux list-panes -t "$target" -F '#{pane_pid}' 2>/dev/null | head -1)
-  if [ -n "$target_pid" ]; then
-    children=$(pgrep -P "$target_pid" 2>/dev/null || true)
-    already_running=false
-    for child in $children; do
-      child_args=$(ps -p "$child" -o args= 2>/dev/null || true)
-      if echo "$child_args" | grep -qw "claude\|codex"; then
-        already_running=true
-        break
-      fi
-    done
-    if [ "$already_running" = true ]; then
-      echo "  SKIP $label — already running"
-      failed=$((failed + 1))
-      continue
-    fi
+  if agent_process_in_pane "$target" "$agent_type" "$session_id"; then
+    echo "  OK $label [$agent_type] — expected session already running"
+    restored=$((restored + 1))
+    continue
+  fi
+  if agent_process_in_pane "$target"; then
+    echo "  FAIL $label [$agent_type] — a different AI session is already running"
+    failed=$((failed + 1))
+    continue
   fi
 
   # Build the resume command. The pane is the configured tmux default shell,
@@ -181,11 +204,24 @@ for i in $(seq 0 $((total - 1))); do
     echo "  $label [$agent_type] $session_id"
     echo "    -> $resume_cmd"
   else
+    pane_command=$(tmux list-panes -t "$target" -F '#{pane_current_command}' 2>/dev/null | head -1)
+    case "$pane_command" in
+      bash|zsh|sh|fish|login) ;;
+      *)
+        echo "  FAIL $label [$agent_type] — pane has '$pane_command' running"
+        failed=$((failed + 1))
+        continue
+        ;;
+    esac
+
+    tmux copy-mode -t "$target" 2>/dev/null || true
+    tmux send-keys -t "$target" -X cancel 2>/dev/null || true
+    tmux send-keys -t "$target" C-c C-u
     tmux send-keys -t "$target" "$resume_cmd" Enter
-    if wait_for_agent "$target"; then
+    if wait_for_agent "$target" "$agent_type" "$session_id"; then
       echo "  OK $label [$agent_type]"
     else
-      echo "  FAIL $label [$agent_type] — resume exited or did not start"
+      echo "  FAIL $label [$agent_type] — expected session did not start"
       failed=$((failed + 1))
       continue
     fi
@@ -197,3 +233,4 @@ done
 
 echo ""
 echo "Restored $restored/$total sessions ($failed skipped)."
+[ "$failed" -eq 0 ]

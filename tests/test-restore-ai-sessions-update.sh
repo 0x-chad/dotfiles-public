@@ -93,6 +93,10 @@ tmux -L "$socket_name" new-window -t "=ai" -n codex-pane "$pane_command"
 tmux -L "$socket_name" set-environment -g PATH "$bin_dir:$PATH"
 tmux -L "$socket_name" set-environment -g AI_UPDATE_TEST_LOG "$log_file"
 
+# A restored shell can retain text that was typed but never submitted. The
+# restore must clear it before sending the resume command.
+tmux -L "$socket_name" send-keys -t '=ai:1.0' 'stale-command'
+
 cat > "$home_dir/.tmux-ai-sessions.json" <<'JSON'
 [
   {
@@ -133,6 +137,9 @@ wait_for_line "claude --resume claude-session" ||
   fail "claude resume did not run"
 wait_for_line "codex resume 019e25fb-a490-7760-823e-8846b212f28f" ||
   fail "codex resume did not run"
+if grep -q 'stale-command' "$log_file"; then
+  fail "restore appended its command to stale shell input"
+fi
 wait_for_pane_command '=ai:0.0' zsh ||
   fail "Claude pane did not remain in zsh"
 wait_for_pane_command '=ai:1.0' zsh ||

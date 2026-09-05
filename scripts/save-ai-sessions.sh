@@ -138,27 +138,34 @@ process_start_epoch() {
 }
 
 extract_fork_session_id() {
-  local pid="$1" pane_path="$2" start_epoch window_start window_end file meta
+  local pid="$1" pane_path="$2" start_epoch file meta
   local session_id session_cwd session_timestamp session_epoch delta
+  local best_id="" ambiguous=false
 
   start_epoch=$(process_start_epoch "$pid" || true)
   [ -n "$start_epoch" ] || return 1
-  window_start=$(date -d "@$((start_epoch - 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || true)
-  window_end=$(date -d "@$((start_epoch + 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || true)
-  [ -n "$window_start" ] && [ -n "$window_end" ] || return 1
 
   while IFS= read -r file; do
-    meta=$(head -1 "$file" | jq -r '[.payload.id,.payload.cwd,.payload.timestamp] | @tsv' 2>/dev/null || true)
+    meta=$(head -1 "$file" | jq -r 'select(.payload.thread_source != "subagent" and (.payload.source | type) != "object") | [.payload.id,.payload.cwd,.payload.timestamp] | @tsv' 2>/dev/null || true)
     IFS=$'\t' read -r session_id session_cwd session_timestamp <<< "$meta"
     [ -n "$session_id" ] && [ "$session_cwd" = "$pane_path" ] || continue
     session_epoch=$(date -d "$session_timestamp" +%s 2>/dev/null || true)
     [ -n "$session_epoch" ] || continue
     delta=$((session_epoch - start_epoch))
     [ "$delta" -ge -120 ] && [ "$delta" -le 120 ] || continue
-    printf '%s\n' "$session_id"
+    if [ -z "$best_id" ]; then
+      best_id="$session_id"
+      ambiguous=false
+    elif [ "$session_id" != "$best_id" ]; then
+      ambiguous=true
+    fi
+  done < <(find "$HOME/.codex/sessions" -type f -name '*.jsonl' -print 2>/dev/null)
+
+  # Timing is only a fallback. Multiple candidates cannot prove ownership.
+  if [ -n "$best_id" ] && [ "$ambiguous" = false ]; then
+    printf '%s\n' "$best_id"
     return 0
-  done < <(find "$HOME/.codex/sessions" -type f -name '*.jsonl' \
-    -newermt "$window_start" ! -newermt "$window_end" -print 2>/dev/null)
+  fi
 
   return 1
 }
@@ -218,12 +225,14 @@ extract_codex_session_id() {
     [ -z "$args" ] && continue
     echo "$args" | grep -Eq '(^|[ /])codex([[:space:]]|$)' || continue
 
-    if echo "$args" | grep -Eq '(^|[ /])codex[[:space:]]+fork([[:space:]]|$)' && [ -n "$pane_path" ]; then
+    if echo "$args" | grep -Eq '(^|[[:space:]])fork([[:space:]]|$)' && [ -n "$pane_path" ]; then
       sid=$(extract_fork_session_id "$pid" "$pane_path" || true)
       if [ -n "$sid" ]; then
         echo "$sid"
         return 0
       fi
+      # A shared app-server log may point at the parent or another thread.
+      return 1
     fi
 
     echo "$args" | grep -q 'node_modules/@openai/codex' || continue
