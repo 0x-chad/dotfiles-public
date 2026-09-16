@@ -44,7 +44,7 @@ for _cliproxy_env in "$HOME/.config/cliproxyapi/client.env" "$HOME/.cli-proxy-ap
   [[ -r "$_cliproxy_env" ]] || continue
   typeset -g CODEX_CLIPROXY_ENV="$_cliproxy_env"
   unalias codex 2>/dev/null
-  codex() {
+  function codex {
     local CLIPROXY_API_KEY
     CLIPROXY_API_KEY=$(sed -n 's/^CLIPROXY_API_KEY=//p' "$CODEX_CLIPROXY_ENV")
     [[ -n "$CLIPROXY_API_KEY" ]] || { print -u2 'CLIProxyAPI key is unavailable'; return 1; }
