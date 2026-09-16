@@ -34,6 +34,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Dev container with noVNC for browser automation
 - **Codex**
   - Public agent limits: 20 parallel threads, depth 3
+  - Optional localhost-only CLIProxyAPI pool for multiple Codex OAuth accounts
 - **Brewfile**
   - Terminal: tmux, mosh, fzf, jq
   - Git: gh CLI, git-lfs
@@ -92,6 +93,27 @@ After install:
 2. Run `source ~/.zshrc`
 3. Run `claude login`
 4. Run `./config/claude/setup.sh` to configure plugins and MCPs
+
+### Optional: CLIProxyAPI for Codex
+
+On Linux or macOS, install a localhost-only CLIProxyAPI pool with:
+
+```bash
+~/dotfiles/scripts/setup-cliproxyapi.sh
+source ~/.zshrc
+```
+
+The helper imports an existing `~/.codex/auth.json` automatically. Add any
+additional Codex accounts separately, keeping OAuth credentials private:
+
+```bash
+~/cliproxyapi/cli-proxy-api --codex-login --no-browser
+```
+
+The helper uses the upstream CLIProxyAPI installer on Linux and Homebrew on
+macOS, configures `fill-first` session-affinity routing, and creates a
+`cliproxy` Codex profile. It never copies account files, refresh tokens, or
+API keys into this repository.
 
 ## Layout
 
