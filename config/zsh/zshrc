@@ -37,23 +37,6 @@ PROMPT="%F{magenta}%n@%m:%1~ $ %f"
 
 ### --- Aliases ---
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
-
-# Opt into the local CLIProxyAPI pool after scripts/setup-cliproxyapi.sh has
-# created its private client key. Credentials are never stored in dotfiles.
-for _cliproxy_env in "$HOME/.config/cliproxyapi/client.env" "$HOME/.cli-proxy-api/client.env"; do
-  [[ -r "$_cliproxy_env" ]] || continue
-  typeset -g CODEX_CLIPROXY_ENV="$_cliproxy_env"
-  unalias codex 2>/dev/null
-  function codex {
-    local CLIPROXY_API_KEY
-    CLIPROXY_API_KEY=$(sed -n 's/^CLIPROXY_API_KEY=//p' "$CODEX_CLIPROXY_ENV")
-    [[ -n "$CLIPROXY_API_KEY" ]] || { print -u2 'CLIProxyAPI key is unavailable'; return 1; }
-    export CLIPROXY_API_KEY
-    command codex --profile cliproxy --dangerously-bypass-approvals-and-sandbox "$@"
-  }
-  break
-done
-unset _cliproxy_env
 alias claude='claude --dangerously-skip-permissions --chrome'
 alias claude-fast='ccr code --dangerously-skip-permissions'
 alias python=python3

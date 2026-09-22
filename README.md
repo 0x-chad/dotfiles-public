@@ -112,7 +112,8 @@ additional Codex accounts separately, keeping OAuth credentials private:
 
 The helper uses the upstream CLIProxyAPI installer on Linux and Homebrew on
 macOS, configures `fill-first` session-affinity routing, and creates a
-`cliproxy` Codex profile. On Linux it runs the proxy as a systemd user
+the proxy as Codex's **default** provider, so a bare `codex` uses the pool
+with no wrapper and no `--profile` flag. On Linux it runs the proxy as a systemd user
 service with lingering enabled, so it survives logout and reboot on headless
 hosts. It never copies account files, refresh tokens, or API keys into this
 repository.

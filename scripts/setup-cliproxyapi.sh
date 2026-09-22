@@ -126,9 +126,20 @@ console.log('Imported the existing Codex CLI account into CLIProxyAPI.');
 NODE
 fi
 
-cat >"$HOME/.codex/cliproxy.config.toml" <<'EOF'
-model = "gpt-5.6-sol"
-model_provider = "cliproxy"
+# Make the proxy the default provider in the main config rather than a
+# separate profile, so a bare `codex` uses the pool with no wrapper and no
+# --profile flag. An existing model/provider line is rewritten in place.
+config="$HOME/.codex/config.toml"
+touch "$config"
+if ! grep -q '^\[model_providers.cliproxy\]' "$config"; then
+  if grep -q '^model_provider *=' "$config"; then
+    sed_in_place 's|^model_provider *=.*|model_provider = "cliproxy"|' "$config"
+  elif grep -q '^model *=' "$config"; then
+    sed_in_place '0,/^model *=.*/s||&\nmodel_provider = "cliproxy"|' "$config"
+  else
+    printf 'model = "gpt-5.6-sol"\nmodel_provider = "cliproxy"\n' | cat - "$config" >"$config.tmp" && mv "$config.tmp" "$config"
+  fi
+  cat >>"$config" <<'EOF'
 
 [model_providers.cliproxy]
 name = "CLIProxyAPI"
@@ -136,6 +147,7 @@ base_url = "http://127.0.0.1:8317/v1"
 env_key = "CLIPROXY_API_KEY"
 wire_api = "responses"
 EOF
+fi
 
 case "$PLATFORM" in
   Linux)
