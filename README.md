@@ -116,7 +116,8 @@ the proxy as Codex's **default** provider, so a bare `codex` uses the pool
 with no wrapper and no `--profile` flag. On Linux it runs the proxy as a systemd user
 service with lingering enabled, so it survives logout and reboot on headless
 hosts. It never copies account files, refresh tokens, or API keys into this
-repository.
+repository. The proxy binds 127.0.0.1 and serves local callers without an
+API key, so nothing has to thread a shared secret through shell config.
 
 ## Layout
 

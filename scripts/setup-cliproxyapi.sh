@@ -38,13 +38,11 @@ sed_in_place() {
 }
 
 write_fresh_config() {
-  local api_key="$1"
   cat >"$CONFIG" <<EOF
 host: "127.0.0.1"
 port: 8317
 auth-dir: "$AUTH_DIR"
-api-keys:
-  - "$api_key"
+api-keys: []
 debug: false
 routing:
   strategy: "fill-first"
@@ -73,7 +71,7 @@ configure_macos() {
   local brew_config
   brew_config="$(brew --prefix)/etc/cliproxyapi.conf"
   mkdir -p "$AUTH_DIR"
-  [[ -f "$CONFIG" ]] || write_fresh_config "local-codex-$(openssl rand -hex 24)"
+  [[ -f "$CONFIG" ]] || write_fresh_config
   if [[ -f "$brew_config" && ! -L "$brew_config" ]]; then
     mv "$brew_config" "${brew_config}.backup.$(date +%Y%m%d-%H%M%S)"
   fi
@@ -91,17 +89,14 @@ esac
 mkdir -p "$AUTH_DIR" "$HOME/.codex"
 sed_in_place 's/^host: ""/host: "127.0.0.1"/' "$CONFIG"
 sed_in_place 's/^  strategy: "round-robin"/  strategy: "fill-first"/' "$CONFIG"
+# The proxy binds 127.0.0.1, so a shared secret between local processes buys
+# nothing and has to be threaded into every caller. Serve localhost unauthenticated.
+perl -0pi -e 's/^api-keys:\n(?:\s*-\s*".*"\n)+/api-keys: []\n/m' "$CONFIG"
 sed_in_place 's/^  session-affinity: false/  session-affinity: true/' "$CONFIG"
-if grep -q 'your-api-key-' "$CONFIG"; then
-  sed_in_place "s/your-api-key-[0-9]/$(openssl rand -hex 24)/" "$CONFIG"
-fi
 
-api_key=$(sed -n '/^api-keys:/,/^[^[:space:]]/ { s/^[[:space:]]*-[[:space:]]*"\([^"]*\)".*/\1/p; }' "$CONFIG" | head -n 1)
-[[ -n "$api_key" ]] || { echo "Could not read a CLIProxyAPI key" >&2; exit 1; }
 
 umask 077
-printf 'CLIPROXY_API_KEY=%s\n' "$api_key" >"$AUTH_DIR/client.env"
-chmod 600 "$CONFIG" "$AUTH_DIR/client.env"
+chmod 600 "$CONFIG"
 
 if [[ -f "$HOME/.codex/auth.json" ]]; then
   command -v node >/dev/null || { echo "node is required to import existing Codex credentials" >&2; exit 1; }
@@ -144,7 +139,6 @@ if ! grep -q '^\[model_providers.cliproxy\]' "$config"; then
 [model_providers.cliproxy]
 name = "CLIProxyAPI"
 base_url = "http://127.0.0.1:8317/v1"
-env_key = "CLIPROXY_API_KEY"
 wire_api = "responses"
 EOF
 fi
@@ -161,10 +155,10 @@ case "$PLATFORM" in
 esac
 
 for _ in $(seq 1 15); do
-  curl -fsS -H "Authorization: Bearer $api_key" http://127.0.0.1:8317/v1/models >/dev/null && break
+  curl -fsS http://127.0.0.1:8317/v1/models >/dev/null && break
   sleep 1
 done
-curl -fsS -H "Authorization: Bearer $api_key" http://127.0.0.1:8317/v1/models >/dev/null
+curl -fsS http://127.0.0.1:8317/v1/models >/dev/null
 
 echo "CLIProxyAPI is running at http://127.0.0.1:8317."
 echo "Reload zsh with: source ~/.zshrc"
