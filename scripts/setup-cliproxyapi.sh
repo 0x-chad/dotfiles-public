@@ -151,12 +151,6 @@ fi
 
 case "$PLATFORM" in
   Linux)
-    cliproxy_unit="$HOME/.config/systemd/user/cliproxyapi.service"
-    # The upstream unit omits -local-model, so the proxy fetches the remote model
-    # catalog on every start. Pin it to the embedded catalogs instead.
-    if [[ -f "$cliproxy_unit" ]] && ! grep -q -- "-local-model" "$cliproxy_unit"; then
-      sed_in_place 's|^\(ExecStart=.*/cli-proxy-api\)$|\1 -local-model|' "$cliproxy_unit"
-    fi
     systemctl --user daemon-reload
     systemctl --user enable --now cliproxyapi.service
     # systemd user services are stopped when the user's last session ends, which
