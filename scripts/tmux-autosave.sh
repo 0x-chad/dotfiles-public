@@ -14,6 +14,7 @@ LOG_FILE="${TMUX_AUTOSAVE_LOG:-$HOME/.local/state/tmux-autosave.log}"
 LOCK_DIR="${TMPDIR:-/tmp}/tmux-autosave-$(id -u).lock"
 STATE_DIR="${TMUX_AUTOSAVE_STATE_DIR:-$HOME/.local/state/tmux-autosave}"
 UNLOCKED_SERVER_FILE="${TMUX_AUTOSAVE_UNLOCKED_SERVER:-$STATE_DIR/unlocked-server}"
+EXTRA_STATE_ERROR_FILE="${TMUX_AUTOSAVE_EXTRA_ERROR_FILE:-$STATE_DIR/extra-state-error}"
 FORCE_SAVE="${TMUX_AUTOSAVE_FORCE:-0}"
 UPSTREAM_SAVE_SCRIPT="${TMUX_AUTOSAVE_RESURRECT_SAVE_SCRIPT:-}"
 
@@ -231,10 +232,16 @@ if valid_snapshot "$new_last_path" "$expected_panes" "$expected_windows"; then
   window_rows="$(snapshot_field_count window "$new_last_path")"
   bytes="$(wc -c < "$new_last_path" 2>/dev/null || echo 0)"
   echo "[$(timestamp)] validated snapshot: $new_last panes=$pane_rows/$expected_panes windows=$window_rows/$expected_windows bytes=$bytes"
-  if [ "$status" -eq 0 ]; then
-    mark_save_ok
-  else
+  extra_state_error=""
+  [ -s "$EXTRA_STATE_ERROR_FILE" ] && extra_state_error="$(head -n 1 "$EXTRA_STATE_ERROR_FILE" 2>/dev/null || true)"
+  if [ "$status" -ne 0 ]; then
     mark_save_failed "$(timestamp): save command failed status $status"
+  elif [ -n "$extra_state_error" ]; then
+    echo "[$(timestamp)] extra-state save failed: $extra_state_error"
+    mark_save_failed "$(timestamp): $extra_state_error"
+    status=1
+  else
+    mark_save_ok
   fi
 else
   echo "[$(timestamp)] invalid tmux-resurrect snapshot: ${new_last_path:-missing}"

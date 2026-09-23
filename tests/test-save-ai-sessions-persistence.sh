@@ -102,4 +102,25 @@ if HOME="$test_home" PATH="$test_bin:/usr/bin:/bin" SAVE_AI_SQLITE_OUTPUT="$sqli
   fail "dry run succeeded with no resumable rollout"
 fi
 
+# A runtime-only Codex id with no row in the persistent thread store is an
+# empty session shell, not lost resumable state. It must not block all saves.
+python3 - "$test_home/.codex/state_5.sqlite" <<'PY'
+import sqlite3
+import sys
+
+conn = sqlite3.connect(sys.argv[1])
+conn.execute("create table threads (id text primary key, rollout_path text, has_user_event integer not null default 0)")
+conn.commit()
+conn.close()
+PY
+
+HOME="$test_home" PATH="$test_bin:/usr/bin:/bin" SAVE_AI_SQLITE_OUTPUT="$sqlite_output" \
+  "$REPO_DIR/scripts/save-ai-sessions.sh" >"$output_file" 2>&1 ||
+  fail "empty runtime-only Codex session blocked save"
+
+[ "$(jq length "$test_home/.tmux-ai-sessions.json")" -eq 0 ] ||
+  fail "empty runtime-only Codex session was written to the manifest"
+grep -q 'EMPTY test/main \[codex\] — no persisted user turn; ignored' "$output_file" ||
+  fail "empty runtime-only Codex session was not reported"
+
 echo "PASS: save-ai-sessions rejects orphan IDs and preserves the last good manifest"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# save-ai-sessions.sh — Capture Claude/Codex session IDs from tmux panes.
+# save-ai-sessions.sh — Capture Claude/Codex/OMP session IDs from tmux panes.
 #
 # Default mode is non-invasive: it reads process args and local state databases
 # without sending anything into the chat. Use --probe-status to fall back to the
@@ -48,6 +48,58 @@ codex_rollout_exists() {
   [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
   find "$HOME/.codex/sessions" "$HOME/.codex/archived_sessions" \
     -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
+}
+
+codex_session_is_unpersisted() {
+  local session_id="$1" db="$HOME/.codex/state_5.sqlite"
+  [ -f "$db" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+
+  python3 - "$db" "$session_id" <<'PY' >/dev/null 2>&1
+import sqlite3
+import sys
+
+db, session_id = sys.argv[1], sys.argv[2]
+conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+try:
+    row = conn.execute(
+        "select rollout_path, has_user_event from threads where id = ?",
+        (session_id,),
+    ).fetchone()
+finally:
+    conn.close()
+
+# No thread row means Codex has not persisted this runtime-only session. A row
+# without either a rollout path or user event is likewise still an empty shell.
+if row is None or (not row[0] and not row[1]):
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
+omp_session_exists() {
+  local session_id="$1"
+  [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
+  find "$HOME/.omp/agent/sessions" -type f -name "*_${session_id}.jsonl" \
+    -print -quit 2>/dev/null | grep -q .
+}
+
+extract_omp_session_id() {
+  local pane_id="$1"
+  local pane_tty tty_key marker transcript sid
+  # OMP records the active transcript by terminal, so session discovery does
+  # not require chat probing or an external agent registry.
+  pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
+  [ -n "$pane_tty" ] || return 1
+  tty_key="${pane_tty#/dev/}"
+  tty_key="${tty_key//\//-}"
+  marker="$HOME/.omp/agent/terminal-sessions/$tty_key"
+  [ -f "$marker" ] || return 1
+  transcript=$(sed -n '2p' "$marker" 2>/dev/null || true)
+  [ -f "$transcript" ] || return 1
+  sid=$(basename "$transcript" | grep -oE "$UUID_RE" | tail -1 || true)
+  [ -n "$sid" ] || return 1
+  printf '%s\n' "$sid"
 }
 
 should_skip_session() {
@@ -137,6 +189,24 @@ process_start_epoch() {
   date -d "$start" +%s 2>/dev/null
 }
 
+extract_codex_session_id_from_fd() {
+  # A running codex process keeps its rollout .jsonl open, so /proc/<pid>/fd
+  # names the session outright. This is exact -- unlike cwd+timestamp matching,
+  # it cannot be ambiguous -- so it is tried before any heuristic.
+  local pane_pid="$1" pid target sid
+  for pid in $(process_tree "$pane_pid"); do
+    for target in /proc/"$pid"/fd/*; do
+      [ -e "$target" ] || continue
+      sid=$(readlink "$target" 2>/dev/null | grep -oE "rollout-[0-9T:-]+-$UUID_RE\.jsonl" | grep -oE "$UUID_RE" | head -1)
+      if [ -n "$sid" ]; then
+        printf '%s\n' "$sid"
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
 extract_fork_session_id() {
   local pid="$1" pane_path="$2" start_epoch file meta
   local session_id session_cwd session_timestamp session_epoch delta
@@ -217,6 +287,12 @@ extract_codex_session_id() {
     fi
   done
 
+  sid=$(extract_codex_session_id_from_fd "$pane_pid" || true)
+  if [ -n "$sid" ]; then
+    echo "$sid"
+    return 0
+  fi
+
   db="$HOME/.codex/logs_2.sqlite"
   [ -f "$db" ] || return 1
 
@@ -280,6 +356,7 @@ require_jq
 
 declare -a PANE_IDS=() PANE_LABELS=() PANE_TYPES=() PANE_SESSION_IDS=() PANE_ERRORS=()
 declare -a PANE_SESSIONS=() PANE_WINIDX=() PANE_WINNAMES=() PANE_PANEIDX=() PANE_PATHS=()
+declare -a EMPTY_CODEX_PANES=()
 
 while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pane_id; do
   [ "$pane_id" = "$SELF_PANE" ] && continue
@@ -298,6 +375,9 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
     elif echo "$args" | grep -Eq '(^|[ /])codex([[:space:]]|$)'; then
       agent_type="codex"
       break
+    elif echo "$args" | grep -Eq '(^|[ /])omp([[:space:]]|$)'; then
+      agent_type="omp"
+      break
     fi
   done
   [ -z "$agent_type" ] && continue
@@ -307,7 +387,18 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
   elif [ "$agent_type" = "codex" ]; then
     session_id=$(extract_codex_session_id "$pane_pid" "$pane_path" || true)
     if [ -n "$session_id" ] && ! codex_rollout_exists "$session_id"; then
-      session_error="session ID $session_id has no saved rollout"
+      if codex_session_is_unpersisted "$session_id"; then
+        EMPTY_CODEX_PANES+=("$(pane_label "$sess_name" "$win_name" "$pane_idx" "$win_idx")")
+        continue
+      else
+        session_error="session ID $session_id has no saved rollout"
+        session_id=""
+      fi
+    fi
+  elif [ "$agent_type" = "omp" ]; then
+    session_id=$(extract_omp_session_id "$pane_id" || true)
+    if [ -n "$session_id" ] && ! omp_session_exists "$session_id"; then
+      session_error="session ID $session_id has no saved OMP transcript"
       session_id=""
     fi
   fi
@@ -326,6 +417,9 @@ done < <(tmux list-panes -a -F '#{session_name}|#{window_index}|#{window_name}|#
 
 total=${#PANE_IDS[@]}
 echo "Found $total AI panes."
+for label in "${EMPTY_CODEX_PANES[@]+"${EMPTY_CODEX_PANES[@]}"}"; do
+  echo "  EMPTY $label [codex] — no persisted user turn; ignored"
+done
 
 TMPFILE=$(mktemp)
 trap 'rm -f "$TMPFILE" "$TMPFILE.next"; rm -rf "${SNAP_DIR:-}"' EXIT
@@ -427,6 +521,8 @@ if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" = true ]; then
         PANE_ERRORS[$idx]="session ID $session_id has no saved rollout"
         session_id=""
       fi
+    elif [ "$agent_type" = "omp" ]; then
+      session_id=$(extract_omp_session_id "${PANE_IDS[$idx]}" || true)
     fi
 
     if [ -z "$session_id" ]; then

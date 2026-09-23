@@ -1,5 +1,5 @@
 #!/bin/bash
-# restore-ai-sessions.sh — Restore Claude/Codex sessions after reboot
+# restore-ai-sessions.sh — Restore Claude/Codex/OMP sessions after reboot
 # Run after tmux-resurrect has restored your tmux layout.
 #
 # Usage: ~/scripts/restore-ai-sessions.sh [--dry-run]
@@ -51,6 +51,29 @@ codex_rollout_exists() {
     -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
 }
 
+omp_session_exists() {
+  local session_id="$1"
+  [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
+  find "$HOME/.omp/agent/sessions" -type f -name "*_${session_id}.jsonl" \
+    -print -quit 2>/dev/null | grep -q .
+}
+
+omp_session_in_pane() {
+  local target="$1" expected_id="$2" pane_id pane_tty tty_key marker transcript actual_id
+  pane_id=$(tmux list-panes -t "$target" -F '#{pane_id}' 2>/dev/null | head -1)
+  [ -n "$pane_id" ] || return 1
+  pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
+  [ -n "$pane_tty" ] || return 1
+  tty_key="${pane_tty#/dev/}"
+  tty_key="${tty_key//\//-}"
+  marker="$HOME/.omp/agent/terminal-sessions/$tty_key"
+  [ -f "$marker" ] || return 1
+  transcript=$(sed -n '2p' "$marker" 2>/dev/null || true)
+  [ -f "$transcript" ] || return 1
+  actual_id=$(basename "$transcript" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | tail -1 || true)
+  [ "$actual_id" = "$expected_id" ]
+}
+
 children_of() {
   pgrep -P "$1" 2>/dev/null || true
 }
@@ -69,6 +92,11 @@ agent_process_in_pane() {
   pane_pid=$(tmux list-panes -t "$target" -F '#{pane_pid}' 2>/dev/null | head -1)
   [ -n "$pane_pid" ] || return 1
 
+  if [ "$expected_type" = "omp" ] && [ -n "$expected_id" ] \
+    && omp_session_in_pane "$target" "$expected_id"; then
+    return 0
+  fi
+
   for pid in $(process_tree "$pane_pid"); do
     [ "$pid" = "$pane_pid" ] && continue
     args=$(ps -p "$pid" -o command= 2>/dev/null || true)
@@ -77,7 +105,7 @@ agent_process_in_pane() {
     if [ -n "$expected_type" ]; then
       echo "$args" | grep -Eq "(^|[ /])${expected_type}([[:space:]]|$)" || continue
     else
-      echo "$args" | grep -Eq '(^|[ /])(codex|claude)([[:space:]]|$)' || continue
+      echo "$args" | grep -Eq '(^|[ /])(codex|claude|omp)([[:space:]]|$)' || continue
     fi
 
     if [ -n "$expected_id" ]; then
@@ -144,6 +172,7 @@ update_ai_cli() {
 echo "Updating AI CLIs before session restore..."
 update_ai_cli claude
 update_ai_cli codex
+update_ai_cli omp
 echo ""
 
 for i in $(seq 0 $((total - 1))); do
@@ -159,6 +188,11 @@ for i in $(seq 0 $((total - 1))); do
 
   if [ "$agent_type" = "codex" ] && ! codex_rollout_exists "$session_id"; then
     echo "  SKIP $label — saved Codex session not found: $session_id"
+    failed=$((failed + 1))
+    continue
+  fi
+  if [ "$agent_type" = "omp" ] && ! omp_session_exists "$session_id"; then
+    echo "  SKIP $label — saved OMP session not found: $session_id"
     failed=$((failed + 1))
     continue
   fi
@@ -198,6 +232,8 @@ for i in $(seq 0 $((total - 1))); do
     resume_cmd="cd \"$cwd\" && claude --resume $session_id"
   elif [ "$agent_type" = "codex" ]; then
     resume_cmd="cd \"$cwd\" && codex resume $session_id"
+  elif [ "$agent_type" = "omp" ]; then
+    resume_cmd="cd \"$cwd\" && omp --allow-home --resume $session_id"
   fi
 
   if [ "$DRY_RUN" = true ]; then
