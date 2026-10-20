@@ -111,6 +111,36 @@ run_as_root() {
   fi
 }
 
+get_user_login_shell() {
+  local user_name="$1"
+
+  if command -v getent >/dev/null 2>&1; then
+    getent passwd "$user_name" | cut -d: -f7
+  elif command -v dscl >/dev/null 2>&1; then
+    dscl . -read "/Users/$user_name" UserShell 2>/dev/null | awk '{print $2}'
+  else
+    printf '%s\n' "${SHELL:-}"
+  fi
+}
+
+set_default_shell() {
+  local zsh_path user_name current_shell
+
+  zsh_path="$(command -v zsh)" || die "zsh is not available"
+  user_name="${SUDO_USER:-${USER:-$(id -un)}}"
+  current_shell="$(get_user_login_shell "$user_name")"
+
+  if [[ "$current_shell" == "$zsh_path" ]]; then
+    echo "  Default shell already set to $zsh_path"
+    return
+  fi
+
+  command -v chsh >/dev/null 2>&1 || die "chsh is required to set the default shell"
+  echo "  Setting default shell to $zsh_path for $user_name"
+  run_as_root chsh -s "$zsh_path" "$user_name" ||
+    die "failed to set default shell to $zsh_path for $user_name"
+}
+
 apt_install() {
   if [[ "$APT_UPDATED" != true ]]; then
     run_as_root apt-get update -qq
@@ -332,6 +362,7 @@ install_shell() {
   echo "=== Shell config ==="
   symlink_file "config/zsh/zshrc" ".zshrc"
   symlink_file "config/zsh/zshenv" ".zshenv"
+  set_default_shell
   touch ~/.hushlogin
   echo "  Created ~/.hushlogin"
 }
