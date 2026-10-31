@@ -84,6 +84,27 @@ omp_session_exists() {
     -print -quit 2>/dev/null | grep -q .
 }
 
+omp_session_is_unpersisted() {
+  # OMP writes the terminal marker as soon as the agent starts, but only writes
+  # the transcript once the session has a real turn. A marker whose third line
+  # is "fresh" and whose transcript is absent is a started-but-unused agent:
+  # there is nothing to resume, so it is an empty shell, not a save failure.
+  # Mirrors codex_session_is_unpersisted.
+  local pane_id="$1"
+  local pane_tty tty_key marker transcript state
+  pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
+  [ -n "$pane_tty" ] || return 1
+  tty_key="${pane_tty#/dev/}"
+  tty_key="${tty_key//\//-}"
+  marker="$HOME/.omp/agent/terminal-sessions/$tty_key"
+  [ -f "$marker" ] || return 1
+  transcript=$(sed -n '2p' "$marker" 2>/dev/null || true)
+  [ -n "$transcript" ] && [ -f "$transcript" ] && return 1
+  state=$(sed -n '3p' "$marker" 2>/dev/null || true)
+  [ "$state" = "fresh" ] || return 1
+  return 0
+}
+
 extract_omp_session_id() {
   local pane_id="$1"
   local pane_tty tty_key marker transcript sid
@@ -273,6 +294,44 @@ PY
   fi
 }
 
+extract_codex_session_id_from_state_db() {
+  # Codex 0.158+ hands the rollout file to the shared app-server daemon, so a
+  # pane started without "resume <id>" has the id in neither its argv nor its
+  # own /proc/<pid>/fd, and logs_2.sqlite is keyed by the daemon pid. The
+  # threads table in state_5.sqlite still records cwd + rollout_path, so the
+  # most recently updated rollout-backed thread for this directory is the
+  # session. CLAIMED_SIDS keeps two panes in one directory from taking the same
+  # thread; without it the newest would win twice and the older pane would be
+  # silently mismapped.
+  local pane_path="$1" db="$HOME/.codex/state_5.sqlite" claimed
+  [ -n "$pane_path" ] || return 1
+  [ -f "$db" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  claimed=$(printf '%s\n' "${CLAIMED_SIDS[@]+"${CLAIMED_SIDS[@]}"}")
+
+  python3 - "$db" "$pane_path" "$claimed" <<PYEOF
+import sqlite3
+import sys
+
+db, cwd, claimed_raw = sys.argv[1], sys.argv[2], sys.argv[3]
+claimed = {c for c in claimed_raw.split() if c}
+conn = sqlite3.connect("file:{}?mode=ro".format(db), uri=True)
+try:
+    rows = conn.execute(
+        "select id from threads where cwd = ? and rollout_path is not null "
+        "and rollout_path != '' order by updated_at desc limit 20",
+        (cwd,),
+    ).fetchall()
+finally:
+    conn.close()
+
+for (sid,) in rows:
+    if sid not in claimed:
+        print(sid)
+        break
+PYEOF
+}
+
 extract_codex_session_id() {
   local pane_pid="$1" pane_path="${2:-}" pid args sid db
 
@@ -320,6 +379,12 @@ extract_codex_session_id() {
     fi
   done
 
+  sid=$(extract_codex_session_id_from_state_db "$pane_path" || true)
+  if [ -n "$sid" ]; then
+    echo "$sid"
+    return 0
+  fi
+
   return 1
 }
 
@@ -356,7 +421,9 @@ require_jq
 
 declare -a PANE_IDS=() PANE_LABELS=() PANE_TYPES=() PANE_SESSION_IDS=() PANE_ERRORS=()
 declare -a PANE_SESSIONS=() PANE_WINIDX=() PANE_WINNAMES=() PANE_PANEIDX=() PANE_PATHS=()
+declare -a CLAIMED_SIDS=()
 declare -a EMPTY_CODEX_PANES=()
+declare -a EMPTY_OMP_PANES=()
 
 while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pane_id; do
   [ "$pane_id" = "$SELF_PANE" ] && continue
@@ -386,6 +453,7 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
     session_id=$(extract_claude_session_id "$pane_pid" || true)
   elif [ "$agent_type" = "codex" ]; then
     session_id=$(extract_codex_session_id "$pane_pid" "$pane_path" || true)
+    [ -n "$session_id" ] && CLAIMED_SIDS+=("$session_id")
     if [ -n "$session_id" ] && ! codex_rollout_exists "$session_id"; then
       if codex_session_is_unpersisted "$session_id"; then
         EMPTY_CODEX_PANES+=("$(pane_label "$sess_name" "$win_name" "$pane_idx" "$win_idx")")
@@ -397,9 +465,14 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
     fi
   elif [ "$agent_type" = "omp" ]; then
     session_id=$(extract_omp_session_id "$pane_id" || true)
-    if [ -n "$session_id" ] && ! omp_session_exists "$session_id"; then
-      session_error="session ID $session_id has no saved OMP transcript"
-      session_id=""
+    if [ -z "$session_id" ] || ! omp_session_exists "$session_id"; then
+      if omp_session_is_unpersisted "$pane_id"; then
+        EMPTY_OMP_PANES+=("$(pane_label "$sess_name" "$win_name" "$pane_idx" "$win_idx")")
+        continue
+      elif [ -n "$session_id" ]; then
+        session_error="session ID $session_id has no saved OMP transcript"
+        session_id=""
+      fi
     fi
   fi
 
@@ -419,6 +492,9 @@ total=${#PANE_IDS[@]}
 echo "Found $total AI panes."
 for label in "${EMPTY_CODEX_PANES[@]+"${EMPTY_CODEX_PANES[@]}"}"; do
   echo "  EMPTY $label [codex] — no persisted user turn; ignored"
+done
+for label in "${EMPTY_OMP_PANES[@]+"${EMPTY_OMP_PANES[@]}"}"; do
+  echo "  EMPTY $label [omp] — no persisted transcript; ignored"
 done
 
 TMPFILE=$(mktemp)
