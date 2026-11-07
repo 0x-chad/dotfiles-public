@@ -11,6 +11,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 ## Dotfiles
 - **Zsh**
   - Minimal prompt with username and directory
+  - Sets Zsh as the user's default login shell during installation
   - Shared history across sessions (100k lines)
   - PATH setup for `~/.local/bin`, user scripts, pyenv, fnm when installed, Go, Rust, and Foundry
   - Bare `gws` guard that requires an account-specific wrapper defined locally

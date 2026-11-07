@@ -44,9 +44,27 @@ for f in .zshrc .zshenv .tmux.conf; do
   fi
 done
 
+# Check default shell
+echo ""
+echo "6. Checking default shell..."
+expected_shell="$(command -v zsh)"
+if command -v getent >/dev/null 2>&1; then
+  actual_shell="$(getent passwd "${USER:-$(id -un)}" | cut -d: -f7)"
+elif command -v dscl >/dev/null 2>&1; then
+  actual_shell="$(dscl . -read "/Users/${USER:-$(id -un)}" UserShell | awk '{print $2}')"
+else
+  actual_shell="${SHELL:-}"
+fi
+if [[ "$actual_shell" == "$expected_shell" ]]; then
+  echo "   ✓ default shell is $actual_shell"
+else
+  echo "   ✗ default shell is $actual_shell; expected $expected_shell"
+  exit 1
+fi
+
 # Check env vars
 echo ""
-echo "6. Checking environment variables..."
+echo "7. Checking environment variables..."
 for var in CLAUDE_CODE_OAUTH_TOKEN HYPERBROWSER_API_KEY OP_SERVICE_ACCOUNT_TOKEN; do
   if [[ -n "${!var}" ]]; then
     echo "   ✓ $var is set"
@@ -57,7 +75,7 @@ done
 
 # Check Claude settings
 echo ""
-echo "7. Checking Claude config..."
+echo "8. Checking Claude config..."
 if [[ -f ~/.claude/settings.json ]]; then
   echo "   ✓ settings.json exists"
   echo "   Plugins configured:"
@@ -68,12 +86,12 @@ fi
 
 # Check commands
 echo ""
-echo "8. Checking Claude commands..."
+echo "9. Checking Claude commands..."
 ls ~/.claude/commands/*.md 2>/dev/null | wc -l | xargs -I{} echo "   ✓ {} slash commands installed"
 
 # Check plugin repos cloned
 echo ""
-echo "9. Checking plugin repos..."
+echo "10. Checking plugin repos..."
 for dir in superpowers; do
   if [[ -d ~/$dir/.git ]]; then
     echo "   ✓ ~/$dir cloned"
@@ -84,19 +102,19 @@ done
 
 # Test claude CLI
 echo ""
-echo "10. Testing Claude CLI..."
+echo "11. Testing Claude CLI..."
 if claude --version 2>/dev/null; then
   echo "   ✓ Claude CLI works"
 
   # Run setup-claude.sh with real token
   if [[ "$CLAUDE_CODE_OAUTH_TOKEN" != "test-token-not-real" ]]; then
     echo ""
-    echo "11. Running config/claude/setup.sh..."
+    echo "12. Running config/claude/setup.sh..."
     cd ~/dotfiles
     ./config/claude/setup.sh
 
     echo ""
-    echo "12. Verifying with Claude..."
+    echo "13. Verifying with Claude..."
     timeout 60 claude -p "list all configured MCP servers and installed plugins, be brief" --print 2>&1
   fi
 else
