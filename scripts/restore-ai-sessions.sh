@@ -92,10 +92,6 @@ agent_process_in_pane() {
   pane_pid=$(tmux list-panes -t "$target" -F '#{pane_pid}' 2>/dev/null | head -1)
   [ -n "$pane_pid" ] || return 1
 
-  if [ "$expected_type" = "omp" ] && [ -n "$expected_id" ] \
-    && omp_session_in_pane "$target" "$expected_id"; then
-    return 0
-  fi
 
   for pid in $(process_tree "$pane_pid"); do
     [ "$pid" = "$pane_pid" ] && continue
@@ -109,7 +105,13 @@ agent_process_in_pane() {
     fi
 
     if [ -n "$expected_id" ]; then
-      echo "$args" | grep -Fq -- "$expected_id" || continue
+      if echo "$args" | grep -Fq -- "$expected_id"; then
+        return 0
+      fi
+      if [ "$expected_type" = "omp" ] && omp_session_in_pane "$target" "$expected_id"; then
+        return 0
+      fi
+      continue
     fi
     return 0
   done
@@ -174,7 +176,6 @@ update_ai_cli claude
 update_ai_cli codex
 update_ai_cli omp
 echo ""
-
 for i in $(seq 0 $((total - 1))); do
   tmux_session=$(jq -r ".[$i].tmux_session" "$INPUT_FILE")
   win_idx=$(jq -r ".[$i].window_index" "$INPUT_FILE")
@@ -250,10 +251,14 @@ for i in $(seq 0 $((total - 1))); do
         ;;
     esac
 
-    tmux copy-mode -t "$target" 2>/dev/null || true
+    tmux copy-mode -q -t "$target" 2>/dev/null || true
+    sleep 0.2
     tmux send-keys -t "$target" -X cancel 2>/dev/null || true
-    tmux send-keys -t "$target" C-c C-u
-    tmux send-keys -t "$target" "$resume_cmd" Enter
+    tmux send-keys -t "$target" C-u
+    sleep 0.2
+    tmux send-keys -l -t "$target" "$resume_cmd"
+    sleep 0.2
+    tmux send-keys -t "$target" Enter
     if wait_for_agent "$target" "$agent_type" "$session_id"; then
       echo "  OK $label [$agent_type]"
     else
