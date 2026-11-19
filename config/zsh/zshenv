@@ -10,3 +10,10 @@ export AGENT_BROWSER_IDLE_TIMEOUT_MS="14400000"
 # Load secrets (not tracked in git)
 [[ -f ~/.secrets ]] && source ~/.secrets
 
+# Machine-local environment, last so it can override anything above. This is
+# the non-interactive counterpart to ~/.zshrc.local: zshrc is only sourced for
+# interactive shells, so anything a script or cron job needs belongs here.
+# Provided by the private dotfiles as a symlink; absent on machines with none,
+# which is why this file never refers to that repo directly.
+[ -r "$HOME/.zshenv.local" ] && source "$HOME/.zshenv.local"
+
