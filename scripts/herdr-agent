@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Start an agent from the herdr UI into a properly named tmux window, so the
+# same agent is reachable from herdr and from an ordinary `tmux attach`.
+#
+# herdr's own terminals are not tmux. Left alone they are either not in tmux at
+# all, or dropped into an unnamed numbered session by the shell profile. This
+# puts them in <space>:<tab> instead, matching what you would have made by
+# hand, and runs the agent under muxlight so its status reaches herdr.
+#
+# Used as a program entry so the + menu can start it:
+#   herdr-agent codex --dangerously-bypass-approvals-and-sandbox
+set -uo pipefail
+
+HC="${HC:-$HOME/.local/bin/hc}"
+MUXLIGHT="${MUXLIGHT:-$HOME/.local/bin/muxlight}"
+
+[ $# -gt 0 ] || { echo "usage: herdr-agent <agent> [args...]" >&2; exit 2; }
+
+run_agent() {  # no tmux, or no way to place it: just run it
+  if [ -x "$MUXLIGHT" ]; then exec "$MUXLIGHT" run "$@"; else exec "$@"; fi
+}
+
+# Outside a herdr terminal there is nothing to place; behave like a plain launcher.
+[ -n "${HC_TERMINAL_ID:-}" ] || run_agent "$@"
+command -v tmux >/dev/null 2>&1 || run_agent "$@"
+
+# herdr labels a terminal with "<space> / <tab>" shortly after creating it, so
+# the name is not known at exec time. Wait briefly rather than guess.
+where=""
+for _ in $(seq 1 24); do
+  where="$("$HC" get "$HC_TERMINAL_ID" --json 2>/dev/null |
+    python3 -c 'import json,sys
+try: print((json.load(sys.stdin).get("labels") or {}).get("where") or "")
+except Exception: print("")' 2>/dev/null)"
+  [ -n "$where" ] && break
+  sleep 0.25
+done
+[ -n "$where" ] || run_agent "$@"
+
+# tmux forbids ":" and "." in session names; keep the rest readable.
+sanitize() { printf '%s' "$1" | tr ':.' '--' | tr -cd '[:alnum:]_/-' ; }
+session="$(sanitize "${where%% / *}")"
+window="$(sanitize "${where##* / }")"
+[ -n "$session" ] && [ -n "$window" ] || run_agent "$@"
+
+# Build the window detached, start the agent in it, then make this terminal a
+# view of it. Detached first so the agent is never a child of this client:
+# closing the herdr tab then leaves the agent running, like any tmux window.
+# -c "$PWD": herdr gave this terminal the tab's folder, so the tmux window
+# starts in the repo rather than wherever tmux last defaulted to.
+tmux has-session -t "=$session" 2>/dev/null ||
+  tmux new-session -d -s "$session" -n "$window" -c "$PWD"
+target="$(tmux list-windows -t "=$session" -F '#{window_name}	#{window_id}' |
+          awk -F'\t' -v w="$window" '$1==w {print $2; exit}')"
+if [ -z "$target" ]; then
+  # ':$' is the last window, so -a appends. Plain '-a -t <session>' would
+  # insert after that session's *current* window, dropping a new agent into
+  # the middle of someone's existing work.
+  target="$(tmux new-window -d -a -t "$session:\$" -n "$window" -c "$PWD" \
+            -P -F '#{window_id}')"
+fi
+[ -n "$target" ] || run_agent "$@"
+
+# Only launch into an idle window, so re-running never stacks two agents.
+if [ "$(tmux display-message -p -t "$target" '#{pane_current_command}')" = "zsh" ] ||
+   [ "$(tmux display-message -p -t "$target" '#{pane_current_command}')" = "bash" ]; then
+  # Pass our terminal id in explicitly. tmux panes get the server environment,
+  # not the environment of the client that created them, so muxlight inside the
+  # window would otherwise not know which herdr terminal to report to and would
+  # look for a view session that does not exist.
+  tmux send-keys -t "$target" "HC_TERMINAL_ID=$HC_TERMINAL_ID $MUXLIGHT run $*"
+  sleep 0.2
+  tmux send-keys -t "$target" Enter
+fi
+
+# Attach through a view: a session holding just this window, linked. Attaching
+# to <space> directly would make every herdr tab another client of the same
+# session, and a session has one current window, so switching windows in one
+# tab would drag all the others with it. The view gives this tab its own.
+# Named by window id to match what herdr-focus creates for windows made
+# outside herdr.
+view="herdr-view-${target#@}"
+if ! tmux has-session -t "=$view" 2>/dev/null; then
+  # Keep the placeholder's id: killing it by name would be a name lookup in a
+  # target that also accepts indexes, the ambiguity that makes "session:7" mean
+  # window index 7 rather than a window called 7.
+  ph="$(tmux new-session -d -s "$view" -n __view_placeholder -c "$PWD" \
+        -P -F '#{window_id}')"
+  tmux link-window -s "$target" -t "$view:90" 2>/dev/null
+  [ -n "$ph" ] && tmux kill-window -t "$ph" 2>/dev/null
+fi
+
+# Keep the tmux window named after the herdr tab.
+#
+# herdr's + menu cannot ask for a name, so a new tab is called after its
+# program ("Codex") and the window would be stuck with that. Renaming the tab
+# (tab.rename asks when given no name) should be enough, so follow it: poll
+# this terminal's "<space> / <tab>" label and rename the window when it
+# changes. Stops when the terminal goes.
+(
+  last="$window"
+  while sleep 3; do
+    info="$("$HC" get "$HC_TERMINAL_ID" --json 2>/dev/null)" || break
+    [ -n "$info" ] || break
+    now="$(printf '%s' "$info" | python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin)
+    print("" if d.get("state")=="finished" else ((d.get("labels") or {}).get("where") or ""))
+except Exception: print("")' 2>/dev/null)"
+    [ -n "$now" ] || break
+    now="$(sanitize "${now##* / }")"
+    if [ -n "$now" ] && [ "$now" != "$last" ]; then
+      tmux rename-window -t "$target" "$now" 2>/dev/null && last="$now"
+    fi
+  done
+) >/dev/null 2>&1 &
+
+exec tmux attach -t "=$view"
