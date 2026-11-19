@@ -41,7 +41,18 @@ elif [[ "$session" == "clean" ]]; then
   echo "Deleted $(_tmux_clean_numbered) session(s)"
 elif [[ "$session" == "--select" ]]; then
   _tmux_clean_numbered >/dev/null
-  selected="$(tmux list-sessions -F '#{session_name}' 2>/dev/null | fzf --reverse --header='Switch session')"
+  # Hide herdr-view- sessions: each is one window linked into a herdr tab, not
+  # somewhere to switch to, and the window is already listed under the session
+  # that owns it. `t --select --all` shows them anyway.
+  if [[ "${2:-}" == "--all" ]]; then
+    _t_sessions() { tmux list-sessions -F '#{session_name}' 2>/dev/null; }
+  else
+    _t_sessions() {
+      tmux list-sessions -F '#{session_name}' 2>/dev/null |
+        grep -v "^herdr-view-" || true
+    }
+  fi
+  selected="$(_t_sessions | fzf --reverse --header='Switch session')"
   _tmux_switch_or_create "$selected"
 elif [[ "$session" == "a" || "$session" == "attach" ]]; then
   # Reattach to most recent session

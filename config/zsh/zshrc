@@ -36,8 +36,19 @@ autoload -U colors && colors
 PROMPT="%F{magenta}%n@%m:%1~ $ %f"
 
 ### --- Aliases ---
-alias codex='codex --dangerously-bypass-approvals-and-sandbox'
-alias claude='claude --dangerously-skip-permissions --chrome'
+# Agents run under muxlight where it is installed: tmux swallows the OSC 7501
+# status an agent writes, so muxlight sits between them, passes every byte
+# through, and mirrors the status to tmux pane options and to herdr. Outside
+# tmux it execs the agent directly. Guarded so hosts without muxlight keep
+# working unchanged.
+if command -v muxlight >/dev/null 2>&1; then
+  alias codex='muxlight run codex --dangerously-bypass-approvals-and-sandbox'
+  alias claude='muxlight run claude --dangerously-skip-permissions --chrome'
+  alias omp='muxlight run omp'
+else
+  alias codex='codex --dangerously-bypass-approvals-and-sandbox'
+  alias claude='claude --dangerously-skip-permissions --chrome'
+fi
 alias claude-fast='ccr code --dangerously-skip-permissions'
 alias python=python3
 alias pip=pip3
@@ -116,7 +127,14 @@ fi
 
 # Auto-start tmux for new terminal tabs/SSH sessions
 # Each new tab gets its own unique session (numbered 0, 1, 2, etc.)
-if [[ -o interactive ]] && [[ -t 0 ]] && [[ -n "$TERM_PROGRAM" || -n "$SSH_CONNECTION" ]]; then
+#
+# Skipped inside a herdr terminal (HC_TERMINAL_ID): herdr sets
+# TERM_PROGRAM=ghostty, so this would fire for every tab it opens and leave an
+# unnamed numbered session behind. herdr-agent places those deliberately, in
+# <space>:<tab>, so they are reachable from tmux by a name that means
+# something.
+if [[ -o interactive ]] && [[ -t 0 ]] && [[ -z "$HC_TERMINAL_ID" ]] \
+   && [[ -n "$TERM_PROGRAM" || -n "$SSH_CONNECTION" ]]; then
   typeset _current_tty="$(tty)"
   typeset _tmux_pane_tty=""
   if [[ -n "$TMUX" && -n "$TMUX_PANE" ]]; then
@@ -136,3 +154,8 @@ fi
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Machine-local overlay, last so it can override anything above. Provided by
+# the private dotfiles repo as a symlink; absent on machines that have none,
+# which is why this file never refers to that repo directly.
+[ -r "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
