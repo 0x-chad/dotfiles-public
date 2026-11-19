@@ -1,0 +1,19 @@
+{
+  "programs": {
+    "codex-tmux": {
+      "name": "Codex (tmux)",
+      "match": ["codex"],
+      "run": ["herdr-agent", "codex", "--dangerously-bypass-approvals-and-sandbox"]
+    },
+    "claude-tmux": {
+      "name": "Claude (tmux)",
+      "match": ["claude"],
+      "run": ["herdr-agent", "claude", "--dangerously-skip-permissions", "--chrome"]
+    },
+    "omp-tmux": {
+      "name": "omp (tmux)",
+      "match": ["omp"],
+      "run": ["herdr-agent", "omp"]
+    }
+  }
+}
