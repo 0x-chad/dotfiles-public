@@ -15,6 +15,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Shared history across sessions (100k lines)
   - PATH setup for `~/.local/bin`, user scripts, pyenv, fnm when installed, Go, Rust, and Foundry
   - Bare `gws` guard that requires an account-specific wrapper defined locally
+  - Machine-local overlays: `~/.zshrc.local` (interactive) and `~/.zshenv.local` (every shell, including scripts and cron) are sourced last when present
 - **tmux**
   - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
   - `t` command for named project sessions
@@ -23,6 +24,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Nested tmux pass-through with `Command+l`
   - Status bar toggle with `Option+Space l`
   - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
+  - `set-titles` labels the terminal tab with the session and window name
   - `restore-tmux.sh` recreates saved mosh and AI targets when resurrect missed their panes, runs them under zsh, and leaves zsh behind when they exit
 - **Terminal**
   - Ghostty config
@@ -34,8 +36,14 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
   - Dev container with noVNC for browser automation
 - **Codex**
-  - Public agent limits: 20 parallel threads, depth 3
+  - One shared config for every machine: model, reasoning effort, approval/sandbox policy, feature flags, plugin state, providers, agent limits (20 threads, depth 3)
+  - Applied by `codex-config-merge`, which merges keys into `~/.codex/config.toml` instead of copying, so trusted projects and other state Codex writes itself survive
   - Optional localhost-only CLIProxyAPI pool for multiple Codex OAuth accounts
+- **herdr**
+  - Agents run under [muxlight](https://github.com/0x-chad/muxlight) when installed, so their status reaches herdr through tmux
+  - `herdr-agent` starts an agent from herdr's `+` menu in a named tmux window, reachable from herdr or a plain `tmux attach`
+  - `herdr-focus` picks which running agents get a herdr tab; set `HERDR_FOCUS_MACHINE` and `HERDR_FOCUS_SESSION` in `~/.zshenv.local`
+  - `config/herdr/programs.json` defines the `+` menu entries
 - **Brewfile**
   - Terminal: tmux, mosh, fzf, jq
   - Git: gh CLI, git-lfs
@@ -47,8 +55,8 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 ## Install
 
 ```bash
-git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles
-cd ~/dotfiles
+git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles-public
+cd ~/dotfiles-public
 ./install.sh
 ```
 
@@ -100,7 +108,7 @@ After install:
 On Linux or macOS, install a localhost-only CLIProxyAPI pool with:
 
 ```bash
-~/dotfiles/scripts/setup-cliproxyapi.sh
+~/dotfiles-public/scripts/setup-cliproxyapi.sh
 source ~/.zshrc
 ```
 
@@ -130,7 +138,8 @@ config/
     container/                          # Dev container (Dockerfile, build/run scripts)
     settings.json                       # Claude settings
     setup.sh                            # Post-login plugin/MCP setup
-  codex/config.toml                     # Seeded to ~/.codex/config.toml when missing
+  codex/config.toml                     # Shared keys, merged into ~/.codex/config.toml
+  herdr/programs.json -> ~/.config/herdr-app/programs.json
   ghostty/config      -> ~/.config/ghostty/config
   iterm2/com.googlecode.iterm2.plist    # iTerm2 preferences
   osx/osx-config.sh                     # macOS system preferences
@@ -139,6 +148,8 @@ config/
   zsh/zshrc           -> ~/.zshrc
 scripts/              -> ~/scripts/     # User scripts (in PATH)
   osc52-copy                            # tmux clipboard helper
+  codex-config-merge                    # merge shared Codex config into the live one (needs uv)
+  herdr-agent, herdr-focus              # herdr + tmux integration
   t                                     # tmux session manager
 test-install.sh                         # Installation test
 install.sh                              # Main install script
@@ -155,6 +166,14 @@ t --select     # pick a session with fzf and run normal cleanup
 t a            # reattach to last project
 t clean        # remove unattached numbered projects
 ```
+
+**codex-config-merge** - apply the shared Codex config
+```bash
+codex-config-merge --dry-run   # show the diff, write nothing
+codex-config-merge             # merge; previous file kept as config.toml.bak-<pid>
+codex-config-merge --overlay ~/dotfiles-private/config/codex/config.toml   # then machine-local settings
+```
+Every key the shared file sets is applied; every other key is left alone. tomlkit is resolved by `uv`, so nothing is installed system-wide.
 
 **Google Workspace CLI**
 
