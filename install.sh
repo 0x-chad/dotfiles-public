@@ -411,6 +411,12 @@ install_scripts() {
     ln -s "$script" "$target"
     echo "  Linking scripts/$name -> ~/scripts/$name"
   done
+
+  # herdr's + menu entries, only where the herdr app is installed.
+  if command -v herdr-app >/dev/null 2>&1 && [[ -f "$DOTFILES_DIR/config/herdr/programs.json" ]]; then
+    mkdir -p "$HOME/.config/herdr-app"
+    symlink_file "config/herdr/programs.json" ".config/herdr-app/programs.json"
+  fi
 }
 
 install_tmux_autosave() {
@@ -589,8 +595,14 @@ install_codex() {
   echo "=== Codex CLI + settings ==="
   install_npm_cli codex "@openai/codex"
 
+  # Merged, never copied: Codex writes its own state into this file (trusted
+  # projects, TUI counters, hook hashes). The merge tool gets tomlkit from uv.
   if [[ -f "$DOTFILES_DIR/config/codex/config.toml" ]]; then
-    copy_seed_file "config/codex/config.toml" ".codex/config.toml"
+    command -v uv >/dev/null 2>&1 || die "uv is required for the Codex config merge"
+    local overlay="${DOTFILES_PRIVATE_DIR:-$HOME/dotfiles-private}/config/codex/config.toml"
+    local args=()
+    [[ -f "$overlay" ]] && args+=(--overlay "$overlay")
+    "$DOTFILES_DIR/scripts/codex-config-merge" ${args[@]+"${args[@]}"}
   fi
 }
 
