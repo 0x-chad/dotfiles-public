@@ -70,6 +70,9 @@ def blank_line_before_tables(text: str) -> str:
     re-parsed and compared before it is written."""
     out: list[str] = []
     for line in text.splitlines(keepends=True):
+        blank = line.strip() == ""
+        if blank and (not out or out[-1].strip() == ""):
+            continue  # collapse runs of blank lines, and drop a leading one
         if (line.lstrip().startswith("[")
                 and not line.lstrip().startswith("[[")
                 and out and out[-1].strip() != ""):
