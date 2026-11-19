@@ -302,7 +302,10 @@ extract_codex_session_id_from_state_db() {
   # most recently updated rollout-backed thread for this directory is the
   # session. CLAIMED_SIDS keeps two panes in one directory from taking the same
   # thread; without it the newest would win twice and the older pane would be
-  # silently mismapped.
+  # silently mismapped. Sub-agent threads are never the answer: they are helpers
+  # a session spawned, share its directory, and rank among the newest, so with
+  # several panes in one directory the last pane to resolve was handed one that
+  # was not the pane's own conversation.
   local pane_path="$1" db="$HOME/.codex/state_5.sqlite" claimed
   [ -n "$pane_path" ] || return 1
   [ -f "$db" ] || return 1
@@ -319,7 +322,10 @@ conn = sqlite3.connect("file:{}?mode=ro".format(db), uri=True)
 try:
     rows = conn.execute(
         "select id from threads where cwd = ? and rollout_path is not null "
-        "and rollout_path != '' order by updated_at desc limit 20",
+        "and rollout_path != '' "
+        "and coalesce(thread_source, '') != 'subagent' "
+        "and coalesce(source, '') not like '%subagent%' "
+        "order by updated_at desc limit 20",
         (cwd,),
     ).fetchall()
 finally:
