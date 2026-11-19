@@ -638,6 +638,19 @@ if [ "$failed" -gt 0 ]; then
   exit 1
 fi
 
+# Identifying nothing at all is not an error above: every pane may legitimately
+# be an agent with no conversation yet. But writing that empty result over a
+# manifest that still has sessions in it loses the only record of what to
+# restore. That window is reachable -- right after a restore, while agents are
+# still booting, every pane is "no session yet" -- and autosave runs on a timer,
+# so keep the older manifest and let the next run replace it.
+if [ "$found" -eq 0 ] && [ "$total" -gt 0 ] && [ -s "$OUTPUT_FILE" ] \
+  && [ "$(jq length "$OUTPUT_FILE" 2>/dev/null || echo 0)" -gt 0 ]; then
+  echo ""
+  echo "WARNING: identified 0/$total sessions; preserving existing non-empty manifest at $OUTPUT_FILE"
+  exit 1
+fi
+
 cp "$TMPFILE" "$OUTPUT_FILE"
 
 echo ""
