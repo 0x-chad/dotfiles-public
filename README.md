@@ -85,7 +85,7 @@ Google Workspace CLI setup:
   Replace `account_name` with an account identifier and repeat for each account.
 - The dotfiles do not install the Google Workspace CLI package or store credentials.
 
-The installer refreshes existing symlinks, but keeps existing regular files in place. Remove a local file first if you want the public dotfiles symlink to replace it.
+The installer refreshes existing symlinks, but keeps existing regular files in place. Remove a local file first if you want the public dotfiles symlink to replace it. The Codex config is the exception: it is never replaced, only merged into by `codex-config-merge`.
 
 Node/npm setup:
 - macOS installs `fnm` from the Brewfile when Homebrew components are selected. `zshrc` initializes fnm only when it is installed.
@@ -162,7 +162,8 @@ secrets.example                         # Template for ~/.secrets
 ```bash
 t              # list projects
 t <name>       # attach or create project
-t --select     # pick a session with fzf and run normal cleanup
+t --select     # pick a session with fzf and run normal cleanup (hides herdr-view- sessions)
+t --select --all  # include the herdr view sessions
 t a            # reattach to last project
 t clean        # remove unattached numbered projects
 ```
