@@ -152,8 +152,12 @@ if ! tmux list-sessions >/dev/null 2>&1; then
   exit 0
 fi
 
-expected_panes="$(tmux list-panes -a -F '#{pane_id}' 2>/dev/null | wc -l | tr -d ' ')"
-expected_windows="$(tmux list-windows -a -F '#{window_id}' 2>/dev/null | wc -l | tr -d ' ')"
+# Count distinct objects, not rows. `list-*-a` walks sessions, so a window
+# shared by a session group (tmux new-session -t) is listed once per session
+# while tmux-resurrect writes it once. Counting rows would demand more panes
+# and windows than any correct snapshot can contain, failing every save.
+expected_panes="$(tmux list-panes -a -F '#{pane_id}' 2>/dev/null | sort -u | wc -l | tr -d ' ')"
+expected_windows="$(tmux list-windows -a -F '#{window_id}' 2>/dev/null | sort -u | wc -l | tr -d ' ')"
 if [ "${expected_panes:-0}" -lt 1 ] || [ "${expected_windows:-0}" -lt 1 ]; then
   echo "[$(timestamp)] no panes/windows to save"
   exit 0

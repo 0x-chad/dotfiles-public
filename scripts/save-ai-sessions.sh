@@ -618,9 +618,18 @@ if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" = true ]; then
   done
 fi
 
-if [ "$found" -ne "$total" ]; then
+# A pane with no session id is only a failure when extraction actually failed
+# (PANE_ERRORS is set). An agent that is running but has no conversation yet
+# has nothing to resume, which is normal: a freshly started agent, or one
+# still booting. Those must not block saving everyone else's sessions.
+failed=0
+for idx in "${unresolved[@]}"; do
+  [ -n "${PANE_ERRORS[$idx]}" ] && failed=$((failed + 1))
+done
+
+if [ "$failed" -gt 0 ]; then
   echo ""
-  echo "ERROR: only $found/$total AI sessions have resumable saved state."
+  echo "ERROR: $failed/$total AI sessions failed to resolve (found $found)."
   if [ -s "$OUTPUT_FILE" ]; then
     echo "Preserving existing manifest at $OUTPUT_FILE"
   else
@@ -632,4 +641,4 @@ fi
 cp "$TMPFILE" "$OUTPUT_FILE"
 
 echo ""
-echo "Saved $found/$total sessions ($skipped missed) to $OUTPUT_FILE"
+echo "Saved $found/$total sessions ($skipped with no session yet) to $OUTPUT_FILE"
