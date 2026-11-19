@@ -52,6 +52,43 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Workflow: workmux, yabai (tiling WM)
   - Apps: 1password-cli, maccy (clipboard), hiddenbar
 
+## Architecture: public base, private overlay
+
+This repo is the base for every machine and is public, so it holds nothing
+machine-specific: no hostnames, project names, accounts or secrets. Anything
+that only applies to one machine or account lives in an optional second repo,
+checked out beside this one as `~/dotfiles-private`. A machine with no private
+repo works unchanged.
+
+The rule for where something goes: if it would work on any machine, it belongs
+here; if it names a machine, an account or a path, or needs a secret, it
+belongs in private. Private never duplicates a file from here. A copy in both
+places drifts, and the older one silently wins on whichever machine links it.
+
+How the two combine depends on whether the tool rewrites its own config:
+
+| Kind of file | Mechanism | Examples |
+|---|---|---|
+| Static, never rewritten by a tool | Symlink into this repo | `zshrc`, `zshenv`, `tmux.conf`, `ghostty/config`, `scripts/*` |
+| Shell config needing local additions | This repo sources a local file last, if present | `~/.zshrc.local`, `~/.zshenv.local` |
+| Config the tool writes to itself | Shared keys merged in; every other key left alone | `~/.codex/config.toml` via `codex-config-merge` |
+| Config only one machine has | Lives only in private | account wrappers, `ssh/config`, `gitconfig`, `Brewfile` extras |
+
+Symlinks are wrong for files a tool writes to: Codex records trusted projects
+and UI state in its config, so a symlink into a repo turns each of those writes
+into a dirty diff, and copying the tracked file over it throws that state away.
+The merge tool applies only the keys the shared file names, and keeps the old
+file as a `.bak`.
+
+The overlays split by shell type because `zshrc` is only read by interactive
+shells. `~/.zshrc.local` is for interactive settings; `~/.zshenv.local` is for
+anything a script, cron job or service needs, since `zshenv` is read by all of
+them.
+
+The data only flows one way. The private repo may read from this one (its
+installer calls `codex-config-merge`), but nothing here refers to it by name,
+which is why the hooks are generic (`~/.zshrc.local`, an optional overlay path).
+
 ## Install
 
 ```bash
