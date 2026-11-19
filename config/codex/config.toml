@@ -1,6 +1,54 @@
+# Shared Codex settings for every machine in the fleet.
+#
+# Applied by scripts/codex-config-merge, which merges these keys into an
+# existing ~/.codex/config.toml and leaves every other key alone. Codex writes
+# its own state into that file -- trusted projects, TUI counters, model
+# migration notices, hook hashes -- so it is never a symlink here and never
+# wholesale copied over.
+#
+# Only host-neutral settings belong in this file. Anything needing a GUI, a
+# local app bundle or a machine-specific path goes in the private dotfiles
+# overlay. Secrets belong in neither: this repo is public, and an MCP bearer
+# token in a Codex config is one `cp` away from being published.
+
+model = "gpt-6.2-sol"
+model_provider = "cliproxy"
+model_reasoning_effort = "xhigh"
+service_tier = "fast"
+web_search = "live"
+personality = "pragmatic"
+
+# Run without prompting. Set here rather than only in the shell alias so it
+# also covers `codex exec`, cron jobs and systemd units, none of which source
+# an interactive shell.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+# Use the 1M context override; compact before the hard limit.
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+tool_output_token_limit = 25000
+
+[features]
+ghost_commit = false
+apply_patch_freeform = true
+skills = true
+shell_snapshot = true
+terminal_resize_reflow = true
+goals = true
+rmcp_client = true
+js_repl = false
+apps = false
+
 [agents]
 max_threads = 20
 max_depth = 3
+
+[notice]
+hide_rate_limit_model_nudge = true
+
+[tui]
+alternate_screen = "never"
 
 [apps.asdk_app_69a1d78e929881919bba0dbda1f6436d]
 enabled = false
@@ -10,3 +58,68 @@ disabled_tools = [
   { type = "plugin", id = "slack@openai-curated-remote" },
   { type = "plugin", id = "slack@openai-curated" },
 ]
+
+# Plugin state is fleet-wide. An entry naming a marketplace a host has not
+# registered is inert there, so it costs nothing and starts applying if that
+# marketplace ever appears.
+[plugins."documents@openai-primary-runtime"]
+enabled = false
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = false
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = false
+
+[plugins."slack@openai-curated"]
+enabled = false
+
+[plugins."browser@openai-bundled"]
+enabled = false
+
+[plugins."codex-app-tools@openai-bundled"]
+enabled = false
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+# Providers are plain HTTP endpoints with nothing host-specific about them, so
+# every machine gets every definition. Each stays inert until the matching key
+# is exported in the environment; no key is ever stored in this file.
+
+# Route Codex through the localhost-only CLIProxyAPI pool by default.
+# The key is read from CLIPROXY_API_KEY, exported in ~/.zshenv from a
+# mode-0600 file so it never lives in shell config or in git.
+[model_providers.cliproxy]
+name = "CLIProxyAPI"
+base_url = "http://127.0.0.1:8317/v1"
+wire_api = "responses"
+supports_standalone_web_search = true
+
+[model_providers.openrouter]
+name = "OpenRouter"
+base_url = "https://openrouter.ai/api/v1"
+wire_api = "responses"
+
+# Venice stays inert until VENICE_API_KEY is exported and it is selected
+# explicitly with --model-provider venice.
+[model_providers.venice]
+name = "Venice AI"
+base_url = "https://api.venice.ai/api/v1"
+wire_api = "responses"
+env_key_instructions = "Create an Inference Only key at https://venice.ai/settings/api, then export VENICE_API_KEY in the shell that starts Codex."
+
+[model_providers.opencode_zen]
+name = "OpenCode Zen"
+base_url = "https://opencode.ai/zen/v1"
+wire_api = "responses"
+
+[profiles.opencode-zen]
+model = "gpt-5.5"
+model_provider = "opencode_zen"
