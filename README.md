@@ -30,7 +30,6 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - iTerm2/Ghostty Option and Command key mappings for tmux controls
 - **Claude Code**
   - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
-  - Skills: agent-browser
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
   - Dev container with noVNC for browser automation
 - **Codex**
@@ -108,7 +107,6 @@ After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
 2. Run `source ~/.zshrc`
 3. Run `claude login`
-4. Run `./config/claude/setup.sh` to configure MCPs and skills
 
 ### Optional: CLIProxyAPI for Codex
 
@@ -144,7 +142,6 @@ config/
     commands/                           # Slash commands
     container/                          # Dev container (Dockerfile, build/run scripts)
     settings.json                       # Claude settings
-    setup.sh                            # Post-login MCP/skill setup
   codex/config.toml                     # Shared keys, merged into ~/.codex/config.toml
   herdr/programs.json -> ~/.config/herdr-app/programs.json
   ghostty/config      -> ~/.config/ghostty/config
