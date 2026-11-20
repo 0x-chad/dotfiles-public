@@ -73,7 +73,7 @@ Install modes:
 ./install.sh pick   # interactive component picker
 ```
 
-`basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `python3`, `pip3`, `venv`, `uv`/`uvx`, `node`/`npm`, and `cron`/`crontab`.
+`basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `go`, `python3`, `pip3`, `venv`, `uv`/`uvx`, `node`/`npm`, and `cron`/`crontab`.
 
 Google Workspace CLI setup:
 - The public config defines a bare `gws` guard that exits instead of selecting credentials implicitly.
@@ -92,6 +92,8 @@ Google Workspace CLI setup:
 
 The installer refreshes existing symlinks, but keeps existing regular files in place. Remove a local file first if you want the public dotfiles symlink to replace it. The Codex config is the exception: it is never replaced, only merged into by `codex-config-merge`.
 
+Go is installed in the basic prerequisites; the installer builds muxlight with it.
+
 Node/npm setup:
 - macOS installs `fnm` from the Brewfile when Homebrew components are selected. `zshrc` initializes fnm only when it is installed.
 - Linux/basic setup uses the system package manager for `node`/`npm`; it does not install fnm.
@@ -100,7 +102,7 @@ Node/npm setup:
 
 Python setup:
 - Linux/basic setup installs `python3`, `python3-pip`, `python3-venv`, and `pipx`, then installs `uv` with `pipx` when `uv` is not already available.
-- macOS full setup installs `uv` from Homebrew.
+- macOS installs `uv` from Homebrew.
 
 After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
@@ -125,7 +127,7 @@ additional Codex accounts separately, keeping OAuth credentials private:
 ```
 
 The helper uses the upstream CLIProxyAPI installer on Linux and Homebrew on
-macOS, configures `fill-first` session-affinity routing, and creates a
+macOS, configures `fill-first` session-affinity routing, and sets
 the proxy as Codex's **default** provider, so a bare `codex` uses the pool
 with no wrapper and no `--profile` flag. On Linux it runs the proxy as a systemd user
 service with lingering enabled, so it survives logout and reboot on headless
@@ -142,7 +144,7 @@ config/
     commands/                           # Slash commands
     container/                          # Dev container (Dockerfile, build/run scripts)
     settings.json                       # Claude settings
-    setup.sh                            # Post-login plugin/MCP setup
+    setup.sh                            # Post-login MCP/skill setup
   codex/config.toml                     # Shared keys, merged into ~/.codex/config.toml
   herdr/programs.json -> ~/.config/herdr-app/programs.json
   ghostty/config      -> ~/.config/ghostty/config
