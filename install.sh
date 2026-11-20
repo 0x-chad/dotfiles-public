@@ -352,6 +352,7 @@ ensure_basic_prereqs() {
   ensure_command zsh zsh
   ensure_command tmux tmux
   ensure_command mosh mosh
+  if command -v brew >/dev/null 2>&1; then ensure_command go go; else ensure_command go golang-go; fi
   ensure_python_tooling
   ensure_crontab
 }
@@ -420,20 +421,12 @@ install_scripts() {
 }
 
 # muxlight sits between an agent and tmux so the agent's status reaches herdr.
-# Built from source: the repo is public, and the only requirement is Go.
+# Built from source: the repo is public, and the only requirement is Go
+# (ensure_basic_prereqs).
 install_muxlight() {
   echo ""
   echo "=== muxlight ==="
   local src="$HOME/.local/src/muxlight" bin="$HOME/.local/bin/muxlight"
-
-  if ! command -v go >/dev/null 2>&1; then
-    echo "  Installing go..."
-    if command -v brew >/dev/null 2>&1; then
-      install_packages go
-    else
-      install_packages golang-go
-    fi
-  fi
 
   mkdir -p "$HOME/.local/src" "$HOME/.local/bin"
   if [[ -d "$src/.git" ]]; then
