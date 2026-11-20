@@ -1,6 +1,5 @@
 # Taps
 tap "hashicorp/tap"
-tap "raine/workmux"
 
 # Core CLI (better GNU versions)
 brew "coreutils"
@@ -33,7 +32,6 @@ brew "helm"
 brew "minikube"
 
 # Workflow
-brew "raine/workmux/workmux"
 
 # Utilities
 brew "terminal-notifier"

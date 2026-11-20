@@ -33,7 +33,6 @@ add_marketplace() {
 # Remote marketplaces (GitHub repos)
 add_marketplace "0x-chad/superpowers"
 add_marketplace "anthropics/claude-code"
-add_marketplace "raine/workmux"
 echo ""
 
 # Install plugins
@@ -49,7 +48,6 @@ install_plugin() {
 install_plugin "superpowers@superpowers-dev"
 install_plugin "frontend-design@claude-code-plugins"
 install_plugin "ralph-wiggum@claude-code-plugins"
-install_plugin "workmux-status@workmux"
 echo ""
 
 # Install skills
