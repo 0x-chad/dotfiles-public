@@ -46,8 +46,12 @@ require_jq() {
 codex_rollout_exists() {
   local session_id="$1"
   [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
+  # Codex compresses older rollouts to .jsonl.zst and still resumes from them,
+  # so a session whose file is compressed exists. Matching only .jsonl reported
+  # every compressed session as missing and failed the whole save.
   find "$HOME/.codex/sessions" "$HOME/.codex/archived_sessions" \
-    -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
+    -type f \( -name "*-$session_id.jsonl" -o -name "*-$session_id.jsonl.zst" \) \
+    -print -quit 2>/dev/null | grep -q .
 }
 
 codex_session_is_unpersisted() {
