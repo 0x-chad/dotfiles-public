@@ -1,6 +1,5 @@
 # Taps
 tap "hashicorp/tap"
-tap "koekeishiya/formulae"
 tap "raine/workmux"
 
 # Core CLI (better GNU versions)
@@ -35,7 +34,6 @@ brew "minikube"
 
 # Workflow
 brew "raine/workmux/workmux"
-brew "koekeishiya/formulae/yabai"
 
 # Utilities
 brew "terminal-notifier"

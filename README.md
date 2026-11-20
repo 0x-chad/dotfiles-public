@@ -49,7 +49,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Git: gh CLI, git-lfs
   - Languages: fnm (Node), pyenv (Python)
   - DevOps: terraform, kubectl, helm, minikube
-  - Workflow: workmux, yabai (tiling WM)
+  - Workflow: workmux
   - Apps: 1password-cli, maccy (clipboard), hiddenbar
 
 ## Architecture
