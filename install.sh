@@ -290,6 +290,24 @@ ensure_python_tooling() {
   command -v uvx >/dev/null 2>&1 || die "uvx still not found after install"
 }
 
+ensure_go() {
+  if command -v go >/dev/null 2>&1; then
+    echo "  go already installed"
+    return 0
+  fi
+
+  echo "  Installing go..."
+  if command -v brew >/dev/null 2>&1; then
+    install_packages go
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt_install golang-go
+  else
+    die "no supported package manager found; install go first"
+  fi
+
+  command -v go >/dev/null 2>&1 || die "go still not found after install"
+}
+
 ensure_user_npm_prefix() {
   local npm_global_root
 
@@ -352,7 +370,7 @@ ensure_basic_prereqs() {
   ensure_command zsh zsh
   ensure_command tmux tmux
   ensure_command mosh mosh
-  if command -v brew >/dev/null 2>&1; then ensure_command go go; else ensure_command go golang-go; fi
+  ensure_go
   ensure_python_tooling
   ensure_crontab
 }
