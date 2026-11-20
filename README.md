@@ -19,7 +19,6 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 - **tmux**
   - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
   - `t` command for named project sessions
-  - Workmux dashboard via `Option+Space f`
   - Auto-start tmux on new terminal tabs and SSH sessions with a real TTY
   - Nested tmux pass-through with `Command+l`
   - Status bar toggle with `Option+Space l`
@@ -31,7 +30,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - iTerm2/Ghostty Option and Command key mappings for tmux controls
 - **Claude Code**
   - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
-  - Plugins: superpowers, frontend-design, workmux-status, ralph-wiggum
+  - Plugins: superpowers, frontend-design, ralph-wiggum
   - Skills: agent-browser
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
   - Dev container with noVNC for browser automation
@@ -49,7 +48,6 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Git: gh CLI, git-lfs
   - Languages: fnm (Node), pyenv (Python)
   - DevOps: terraform, kubectl, helm, minikube
-  - Workflow: workmux
   - Apps: 1password-cli, maccy (clipboard), hiddenbar
 
 ## Architecture
@@ -199,7 +197,6 @@ The bare `gws` command intentionally fails. Define account-specific wrappers in 
 | `Option+Space ;` | Toggle split pane |
 | `Option+Space k` | Session picker |
 | `Option+k`, `Command+k` | Session picker, including while nested tmux pass-through is active |
-| `Option+Space f` | Workmux dashboard |
 | `Option+Space l` | Toggle status bar |
 | `Option+Space c` | Clear screen and scrollback |
 | `Command+0` | Clear screen and scrollback in the active tmux layer |
