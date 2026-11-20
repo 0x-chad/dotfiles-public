@@ -31,7 +31,6 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 - **Claude Code**
   - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
-  - Dev container with noVNC for browser automation
 - **Codex**
   - One shared config for every machine: model, reasoning effort, approval/sandbox policy, feature flags, plugin state, providers, agent limits (20 threads, depth 3)
   - Applied by `codex-config-merge`, which merges keys into `~/.codex/config.toml` instead of copying, so trusted projects and other state Codex writes itself survive
@@ -140,7 +139,6 @@ config/
   brew/Brewfile                         # Homebrew packages
   claude/             -> ~/.claude/     # Claude Code config
     commands/                           # Slash commands
-    container/                          # Dev container (Dockerfile, build/run scripts)
     settings.json                       # Claude settings
   codex/config.toml                     # Shared keys, merged into ~/.codex/config.toml
   herdr/programs.json -> ~/.config/herdr-app/programs.json
