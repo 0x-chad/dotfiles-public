@@ -42,28 +42,7 @@ After install:
 
 ### Optional: CLIProxyAPI for Codex
 
-On Linux or macOS, install a localhost-only CLIProxyAPI pool with:
-
-```bash
-~/dotfiles-public/scripts/setup-cliproxyapi.sh
-source ~/.zshrc
-```
-
-The helper imports an existing `~/.codex/auth.json` automatically. Add any
-additional Codex accounts separately, keeping OAuth credentials private:
-
-```bash
-~/cliproxyapi/cli-proxy-api --codex-login --no-browser
-```
-
-The helper uses the upstream CLIProxyAPI installer on Linux and Homebrew on
-macOS, configures `fill-first` session-affinity routing, and sets
-the proxy as Codex's **default** provider, so a bare `codex` uses the pool
-with no wrapper and no `--profile` flag. On Linux it runs the proxy as a systemd user
-service with lingering enabled, so it survives logout and reboot on headless
-hosts. It never copies account files, refresh tokens, or API keys into this
-repository. The proxy binds 127.0.0.1 and serves local callers without an
-API key, so nothing has to thread a shared secret through shell config.
+`scripts/setup-cliproxyapi.sh` installs a localhost-only proxy that pools multiple Codex OAuth accounts and makes it Codex's default provider. It imports `~/.codex/auth.json`; add more accounts with `~/cliproxyapi/cli-proxy-api --codex-login --no-browser`. No credentials are stored in this repo.
 
 ## Layout
 
