@@ -23,19 +23,22 @@ Runs on the machine with the herdr app; the agents may be anywhere.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 
-# Names the single-window view sessions that back herdr tabs, by tmux window
-# id: "herdr-view-129" for window @129, the "@" dropped because hc names allow
-# only a-z 0-9 - _ . while tmux forbids ":" and ".", so this spelling is legal
-# in both. The id rather than the name, because a window linked
-# into a view belongs to both sessions, so muxlight (running in the pane)
-# cannot tell which session owns it, and because window names change under
-# automatic-rename while ids do not. Not settable: muxlight's internal/herdr
-# has the same constant, and a mismatch fails silently because its report
-# errors are ignored. Change it in both places.
-PREFIX = "herdr-view-"
+# Names the single-window tmux sessions that back herdr tabs, by tmux window id:
+# "herdr-view-129" for window @129. The id rather than the name, because a
+# window linked into a view belongs to both sessions, and because window names
+# change under automatic-rename while ids do not. herdr-agent creates the same
+# sessions with the same spelling.
+VIEW_PREFIX = "herdr-view-"
+
+# The herdr terminal running `tmux attach` to a view carries this label with the
+# window id (no "@"), and is found by it, never by name. Its name is free to be
+# readable, which matters because herdr clients show it as the agent's name.
+# muxlight looks terminals up by the same label.
+WINDOW_LABEL = "herdr.window"
 
 BIN = os.path.expanduser("~/.local/bin")
 ENV = dict(os.environ, PATH=BIN + ":" + os.environ.get("PATH", ""))
@@ -89,8 +92,21 @@ def windows(machine, session):
 
 
 def view(wid):
-    """View/terminal name for a tmux window id: "@129" -> "herdr-view-129"."""
-    return PREFIX + wid.lstrip("@")
+    """tmux view session for a window id: "@129" -> "herdr-view-129"."""
+    return VIEW_PREFIX + wid.lstrip("@")
+
+
+def terminal_name(win, wid, taken):
+    """A readable hc name for a window: its name, made legal and unique.
+
+    hc names are 1-32 of a-z 0-9 - _ and must be unique among live terminals,
+    so the window name is lowercased and cleaned, and the window id is added
+    when that name is already in use.
+    """
+    base = re.sub(r"[^a-z0-9_-]+", "-", win.lower()).strip("-_")[:28] or "window"
+    if base not in taken:
+        return base
+    return ("%s-%s" % (base[:24], wid.lstrip("@")))[:32]
 
 
 def space(name):
@@ -104,14 +120,14 @@ def terminals():
     return {t["address"]: t.get("name") for t in jrun("hc", "ls", "--json").get("terminals", [])}
 
 
-def current(space_obj, names):
-    """Map window_id -> tab object, for tabs backed by a view terminal."""
+def current(space_obj):
+    """Map window_id -> tab object, for tabs backed by a labelled view terminal."""
     out = {}
     for tab in (space_obj or {}).get("tabs", []):
         for t in tab.get("terminals", []):
-            n = names.get(t["terminal"]) or ""
-            if n.startswith(PREFIX):
-                out["@" + n[len(PREFIX):]] = tab
+            labels = jrun("hc", "get", t["terminal"], "--json").get("labels") or {}
+            if labels.get(WINDOW_LABEL):
+                out["@" + labels[WINDOW_LABEL]] = tab
     return out
 
 
@@ -136,14 +152,16 @@ def promote(machine, session, space_id, wid, win):
         "  [ -n \"$ph\" ] && tmux kill-window -t \"$ph\" 2>/dev/null\n"
         "fi\n"
     ) % {"p": "", "w": view(wid), "src": wid})
-    argv = ["hc", "run", "--bg", "--on", machine, "--name", view(wid)]
+    name = terminal_name(win, wid, set(filter(None, terminals().values())))
+    argv = ["hc", "run", "--bg", "--on", machine, "--name", name,
+            "--label", "herdr.space=" + space_id,
+            "--label", "%s=%s" % (WINDOW_LABEL, wid.lstrip("@"))]
     cwd = ssh(machine, "tmux display-message -p -t '%s' '#{pane_current_path}'\n" % wid).strip()
     if not cwd:
         cwd = home(machine)
     if cwd:
         argv += ["--cwd", cwd]
-    run(*(argv + ["tmux", "attach", "-t", view(wid)]))
-    run("hc", "label", "%s/%s" % (machine, view(wid)), "herdr.space=" + space_id)
+    run(*(argv + ["tmux", "attach", "-t", view(wid)]), check=True)
     seed(machine, wid)
 
 
@@ -169,8 +187,14 @@ def seed(machine, wid):
         body += ":kind=" + kind
     if app:
         body += ":app=" + app
-    ssh(machine, "~/.local/bin/hc report '%s' --terminal '%s' >/dev/null 2>&1; true\n"
-        % (body, view(wid)))
+    ssh(machine, (
+        "hc=~/.local/bin/hc\n"
+        "a=$($hc ls --json --label '%(l)s=%(w)s' | python3 -c "
+        "'import json,sys; t=json.load(sys.stdin)[\"terminals\"]; "
+        "print(t[0][\"address\"] if t else \"\")')\n"
+        "[ -n \"$a\" ] && $hc report '%(b)s' --terminal \"$a\" >/dev/null 2>&1\n"
+        "true\n"
+    ) % {"l": WINDOW_LABEL, "w": wid.lstrip("@"), "b": body})
 
 
 def rename(tab_id, name):
@@ -218,7 +242,7 @@ def main():
     ids_for = {}
     for _, name, wid in wins:
         ids_for.setdefault(name, []).append(wid)
-    have = current(sp, terminals())          # window_id -> tab
+    have = current(sp)                       # window_id -> tab
 
     if not (a.names or a.add or a.drop or a.clear or a.all):
         print("space %-10s  %d of %d windows managed" % (space_name, len(have), len(wins)))
@@ -264,8 +288,7 @@ def main():
         print("  - %s" % label.get(wid, wid))
 
     if want - set(have):  # name the new tabs once herdr has made them
-        names = terminals()
-        for wid, tab in current(space(space_name), names).items():
+        for wid, tab in current(space(space_name)).items():
             want_name = label.get(wid)
             if want_name and tab.get("name") != want_name:
                 rename(tab["id"], want_name)
