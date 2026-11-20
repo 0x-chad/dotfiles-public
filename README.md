@@ -8,45 +8,6 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
 
 
 
-## Dotfiles
-- **Zsh**
-  - Minimal prompt with username and directory
-  - Sets Zsh as the user's default login shell during installation
-  - Shared history across sessions (100k lines)
-  - PATH setup for `~/.local/bin`, user scripts, pyenv, fnm when installed, Go, Rust, and Foundry
-  - Bare `gws` guard that requires an account-specific wrapper defined locally
-  - Machine-local overlays: `~/.zshrc.local` (interactive) and `~/.zshenv.local` (every shell, including scripts and cron) are sourced last when present
-- **tmux**
-  - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
-  - `t` command for named project sessions
-  - Auto-start tmux on new terminal tabs and SSH sessions with a real TTY
-  - Nested tmux pass-through with `Command+l`
-  - Status bar toggle with `Option+Space l`
-  - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
-  - `set-titles` labels the terminal tab with the session and window name
-  - `restore-tmux.sh` recreates saved mosh and AI targets when resurrect missed their panes, runs them under zsh, and leaves zsh behind when they exit
-- **Terminal**
-  - Ghostty config
-  - iTerm2/Ghostty Option and Command key mappings for tmux controls
-- **Claude Code**
-  - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
-  - Commands: commit, clean, precommit, consensus, learn, better-prompt
-- **Codex**
-  - One shared config for every machine: model, reasoning effort, approval/sandbox policy, feature flags, plugin state, providers, agent limits (20 threads, depth 3)
-  - Applied by `codex-config-merge`, which merges keys into `~/.codex/config.toml` instead of copying, so trusted projects and other state Codex writes itself survive
-  - Optional localhost-only CLIProxyAPI pool for multiple Codex OAuth accounts
-- **herdr**
-  - Agents run under [muxlight](https://github.com/0x-chad/muxlight), built from source by the installer (needs Go), so their status reaches herdr through tmux
-  - `herdr-agent` starts an agent from herdr's `+` menu in a named tmux window, reachable from herdr or a plain `tmux attach`
-  - `herdr-focus` picks which running agents get a herdr tab; set `HERDR_FOCUS_MACHINE` and `HERDR_FOCUS_SESSION` in `~/.zshenv.local`
-  - `config/herdr/programs.json` defines the `+` menu entries
-- **Brewfile**
-  - Terminal: tmux, mosh, fzf, jq
-  - Git: gh CLI, git-lfs
-  - Languages: fnm (Node), pyenv (Python)
-  - DevOps: terraform, kubectl, helm, minikube
-  - Apps: 1password-cli, maccy (clipboard), hiddenbar
-
 ## Architecture
 
 Public (this repo) is the base for every machine and holds nothing machine-specific: no hostnames, accounts or secrets. An optional private repo at `~/dotfiles-private` holds only what public can't, and never duplicates a public file.
@@ -198,3 +159,42 @@ The bare `gws` command intentionally fails. Define account-specific wrappers in 
 | `Command+0` | Clear screen and scrollback in the active tmux layer |
 | `Option+Space d` | Detach |
 | `Command+l` | Toggle nested tmux pass-through; hides this session's status bar and sends `Option+Space` to the nested tmux |
+
+## Dotfiles
+- **Zsh**
+  - Minimal prompt with username and directory
+  - Sets Zsh as the user's default login shell during installation
+  - Shared history across sessions (100k lines)
+  - PATH setup for `~/.local/bin`, user scripts, pyenv, fnm when installed, Go, Rust, and Foundry
+  - Bare `gws` guard that requires an account-specific wrapper defined locally
+  - Machine-local overlays: `~/.zshrc.local` (interactive) and `~/.zshenv.local` (every shell, including scripts and cron) are sourced last when present
+- **tmux**
+  - `Option+Space` prefix (requires Option/Alt to send Esc+ in your terminal)
+  - `t` command for named project sessions
+  - Auto-start tmux on new terminal tabs and SSH sessions with a real TTY
+  - Nested tmux pass-through with `Command+l`
+  - Status bar toggle with `Option+Space l`
+  - Fast Shift+wheel scrolling and `Option+Space c` scrollback clear
+  - `set-titles` labels the terminal tab with the session and window name
+  - `restore-tmux.sh` recreates saved mosh and AI targets when resurrect missed their panes, runs them under zsh, and leaves zsh behind when they exit
+- **Terminal**
+  - Ghostty config
+  - iTerm2/Ghostty Option and Command key mappings for tmux controls
+- **Claude Code**
+  - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
+  - Commands: commit, clean, precommit, consensus, learn, better-prompt
+- **Codex**
+  - One shared config for every machine: model, reasoning effort, approval/sandbox policy, feature flags, plugin state, providers, agent limits (20 threads, depth 3)
+  - Applied by `codex-config-merge`, which merges keys into `~/.codex/config.toml` instead of copying, so trusted projects and other state Codex writes itself survive
+  - Optional localhost-only CLIProxyAPI pool for multiple Codex OAuth accounts
+- **herdr**
+  - Agents run under [muxlight](https://github.com/0x-chad/muxlight), built from source by the installer (needs Go), so their status reaches herdr through tmux
+  - `herdr-agent` starts an agent from herdr's `+` menu in a named tmux window, reachable from herdr or a plain `tmux attach`
+  - `herdr-focus` picks which running agents get a herdr tab; set `HERDR_FOCUS_MACHINE` and `HERDR_FOCUS_SESSION` in `~/.zshenv.local`
+  - `config/herdr/programs.json` defines the `+` menu entries
+- **Brewfile**
+  - Terminal: tmux, mosh, fzf, jq
+  - Git: gh CLI, git-lfs
+  - Languages: fnm (Node), pyenv (Python)
+  - DevOps: terraform, kubectl, helm, minikube
+  - Apps: 1password-cli, maccy (clipboard), hiddenbar
