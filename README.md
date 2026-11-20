@@ -34,34 +34,7 @@ Install modes:
 
 `basic` installs required packages when possible: `git`, `zsh`, `tmux`, `mosh`, `go`, `python3`, `pip3`, `venv`, `uv`/`uvx`, `node`/`npm`, and `cron`/`crontab`.
 
-Google Workspace CLI setup:
-- The public config defines a bare `gws` guard that exits instead of selecting credentials implicitly.
-- Run `gws setup-help` (also available as `gws help` or `gws --help`) for the generic multi-account setup instructions.
-- Define wrappers for the accounts you actually use in private/local shell config. The wrapper should set a separate `GOOGLE_WORKSPACE_CLI_CONFIG_DIR` and invoke `command gws`.
-- Example template:
-
-  ```zsh
-  gws_account_name() {
-    GOOGLE_WORKSPACE_CLI_CONFIG_DIR="$HOME/.config/gws-account_name" command gws "$@"
-  }
-  ```
-
-  Replace `account_name` with an account identifier and repeat for each account.
-- The dotfiles do not install the Google Workspace CLI package or store credentials.
-
-The installer refreshes existing symlinks, but keeps existing regular files in place. Remove a local file first if you want the public dotfiles symlink to replace it. The Codex config is the exception: it is never replaced, only merged into by `codex-config-merge`.
-
-Go is installed in the basic prerequisites; the installer builds muxlight with it.
-
-Node/npm setup:
-- macOS installs `fnm` from the Brewfile when Homebrew components are selected. `zshrc` initializes fnm only when it is installed.
-- Linux/basic setup uses the system package manager for `node`/`npm`; it does not install fnm.
-- Claude and Codex are installed with npm. If the active npm global directory is root-owned, `install.sh` sets npm's global prefix to `~/.local` and installs the CLIs there.
-- `~/.local/bin` is intentionally before `/usr/local/bin` and `/usr/bin` so user-owned CLI installs win over stale system/global installs.
-
-Python setup:
-- Linux/basic setup installs `python3`, `python3-pip`, `python3-venv`, and `pipx`, then installs `uv` with `pipx` when `uv` is not already available.
-- macOS installs `uv` from Homebrew.
+Setup details (existing files, Go/Node/Python, Google Workspace CLI wrappers): [SETUP.md](SETUP.md).
 
 After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
@@ -116,6 +89,7 @@ scripts/              -> ~/scripts/     # User scripts (in PATH)
   t                                     # tmux session manager
 test-install.sh                         # Installation test
 install.sh                              # Main install script
+SETUP.md                                # Setup details: gws, Go/Node/Python, existing files
 secrets.example                         # Template for ~/.secrets
 ```
 
@@ -141,7 +115,7 @@ Every key the shared file sets is applied; every other key is left alone. tomlki
 
 **Google Workspace CLI**
 
-The bare `gws` command intentionally fails. Define account-specific wrappers in private/local shell config using the template in the setup section, then invoke those wrappers.
+The bare `gws` command intentionally fails. Define account-specific wrappers in private/local shell config using the template in [SETUP.md](SETUP.md), then invoke those wrappers.
 
 ## Keybindings (tmux)
 
