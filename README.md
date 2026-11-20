@@ -30,7 +30,6 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - iTerm2/Ghostty Option and Command key mappings for tmux controls
 - **Claude Code**
   - Session retention set to 3,650,000 days (effectively disables automatic age-based pruning)
-  - Plugins: superpowers, frontend-design, ralph-wiggum
   - Skills: agent-browser
   - Commands: commit, clean, precommit, consensus, learn, better-prompt
   - Dev container with noVNC for browser automation
@@ -70,7 +69,7 @@ Install modes:
 
 ```bash
 ./install.sh basic  # shell, tmux, scripts, Claude/Codex CLIs + config, autosave; terminal config on macOS
-./install.sh full   # basic + Homebrew, Claude/Codex plugins
+./install.sh full   # basic + Homebrew
 ./install.sh pick   # interactive component picker
 ```
 
@@ -107,7 +106,7 @@ After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
 2. Run `source ~/.zshrc`
 3. Run `claude login`
-4. Run `./config/claude/setup.sh` to configure plugins and MCPs
+4. Run `./config/claude/setup.sh` to configure MCPs and skills
 
 ### Optional: CLIProxyAPI for Codex
 
