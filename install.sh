@@ -3,7 +3,7 @@
 #
 # Usage: ./install.sh [basic|full|pick]
 #   basic  — shell + tmux + scripts + Claude/Codex config (+ terminal config on macOS)
-#   full   — everything: brew packages, Claude plugins, MCP servers
+#   full   — everything: brew packages
 #   pick   — interactive component picker (default)
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -644,12 +644,6 @@ install_codex() {
   fi
 }
 
-install_plugins() {
-  echo ""
-  echo "=== Claude plugins ==="
-  echo "  No extra plugin repositories to clone."
-}
-
 # ── Choose what to install ───────────────────────────────────────────
 MODE="${1:-}"
 COMPONENTS=()
@@ -662,7 +656,7 @@ case "$MODE" in
     fi
     ;;
   full)
-    COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins)
+    COMPONENTS=(shell tmux scripts terminal homebrew claude codex)
     ;;
   *)
     # Try interactive picker (requires Python 3 + curses)
@@ -692,7 +686,7 @@ case "$MODE" in
       echo ""
       echo "Install modes:"
       echo "  1) basic  — shell, tmux, scripts, tpm, Claude/Codex config; terminal config on macOS"
-      echo "  2) full   — basic + terminal config, Homebrew packages, Claude/Codex config, plugins, MCP servers"
+      echo "  2) full   — basic + terminal config, Homebrew packages, Claude/Codex config"
       echo ""
       read -rp "Choose [1/2] (default: $default): " choice
       case "$choice" in
@@ -702,10 +696,10 @@ case "$MODE" in
             COMPONENTS+=(terminal)
           fi
           ;;
-        2|full)   COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins) ;;
+        2|full)   COMPONENTS=(shell tmux scripts terminal homebrew claude codex) ;;
         "")
           if [[ "$default" == "full" ]]; then
-            COMPONENTS=(shell tmux scripts terminal homebrew claude codex plugins)
+            COMPONENTS=(shell tmux scripts terminal homebrew claude codex)
           else
             COMPONENTS=(shell tmux scripts claude codex)
             if [[ "$(uname)" == "Darwin" ]]; then
@@ -741,7 +735,6 @@ has_component "terminal" && install_terminal
 has_component "homebrew" && install_homebrew
 has_component "claude"   && install_claude
 has_component "codex"    && install_codex
-has_component "plugins"  && install_plugins
 
 # ── Done ─────────────────────────────────────────────────────────────
 echo ""
@@ -752,7 +745,6 @@ has_component "shell"   && echo "  • Run 'source ~/.zshrc' to reload shell con
 has_component "tmux"    && echo "  • Restart tmux or run 'tmux source-file ~/.tmux.conf' to load config changes"
 has_component "claude"  && echo "  • Run 'claude login' to authenticate"
 has_component "codex"   && echo "  • Run 'codex login' to authenticate"
-has_component "plugins" && echo "  • Run './config/claude/setup.sh' to install plugins and configure MCPs"
-if has_component "plugins" || has_component "claude"; then
+if has_component "claude"; then
   echo "  • Copy secrets.example to ~/.secrets and fill in your values"
 fi
