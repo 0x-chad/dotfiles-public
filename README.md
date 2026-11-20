@@ -40,7 +40,7 @@ https://github.com/user-attachments/assets/156d40e0-027b-42b4-8ccd-8958629ae648
   - Applied by `codex-config-merge`, which merges keys into `~/.codex/config.toml` instead of copying, so trusted projects and other state Codex writes itself survive
   - Optional localhost-only CLIProxyAPI pool for multiple Codex OAuth accounts
 - **herdr**
-  - Agents run under [muxlight](https://github.com/0x-chad/muxlight) when installed, so their status reaches herdr through tmux
+  - Agents run under [muxlight](https://github.com/0x-chad/muxlight), built from source by the installer (needs Go), so their status reaches herdr through tmux
   - `herdr-agent` starts an agent from herdr's `+` menu in a named tmux window, reachable from herdr or a plain `tmux attach`
   - `herdr-focus` picks which running agents get a herdr tab; set `HERDR_FOCUS_MACHINE` and `HERDR_FOCUS_SESSION` in `~/.zshenv.local`
   - `config/herdr/programs.json` defines the `+` menu entries

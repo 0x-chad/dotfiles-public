@@ -419,6 +419,33 @@ install_scripts() {
   fi
 }
 
+# muxlight sits between an agent and tmux so the agent's status reaches herdr.
+# Built from source: the repo is public, and the only requirement is Go.
+install_muxlight() {
+  echo ""
+  echo "=== muxlight ==="
+  local src="$HOME/.local/src/muxlight" bin="$HOME/.local/bin/muxlight"
+
+  if ! command -v go >/dev/null 2>&1; then
+    echo "  Installing go..."
+    if command -v brew >/dev/null 2>&1; then
+      install_packages go
+    else
+      install_packages golang-go
+    fi
+  fi
+
+  mkdir -p "$HOME/.local/src" "$HOME/.local/bin"
+  if [[ -d "$src/.git" ]]; then
+    git -C "$src" pull --ff-only --quiet || die "could not update $src"
+  else
+    git clone --quiet https://github.com/0x-chad/muxlight.git "$src" || die "could not clone muxlight"
+  fi
+  (cd "$src" && go build -o "$bin.new" ./cmd/muxlight) || die "muxlight build failed"
+  mv "$bin.new" "$bin"
+  echo "  Installed $bin ($(git -C "$src" rev-parse --short HEAD))"
+}
+
 install_tmux_autosave() {
   echo ""
   echo "=== Tmux autosave cron ==="
@@ -695,7 +722,7 @@ if has_component "shell" || has_component "tmux" || has_component "scripts"; the
 fi
 has_component "shell"    && install_shell
 has_component "tmux"     && install_tmux
-has_component "scripts"  && install_scripts
+has_component "scripts"  && { install_scripts; install_muxlight; }
 if has_component "tmux" || has_component "scripts"; then
   install_tmux_autosave
 fi
