@@ -39,7 +39,6 @@ Setup details (existing files, Go/Node/Python, Google Workspace CLI wrappers): [
 After install:
 1. Copy `secrets.example` to `~/.secrets` and fill in your values
 2. Run `source ~/.zshrc`
-3. Run `claude login`
 
 ### Optional: CLIProxyAPI for Codex
 
