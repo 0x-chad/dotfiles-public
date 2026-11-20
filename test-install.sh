@@ -6,8 +6,8 @@ echo ""
 
 # Clone the repo
 echo "1. Cloning dotfiles-public..."
-git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles
-cd ~/dotfiles
+git clone https://github.com/0x-chad/dotfiles-public.git ~/dotfiles-public
+cd ~/dotfiles-public
 
 # Create mock secrets file (skip if already mounted)
 echo "2. Setting up secrets..."
