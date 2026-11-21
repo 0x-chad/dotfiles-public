@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Show a tmux window in herdr, from the machine the window lives on.
+#
+#   herdr-show <window>            show the window in herdr
+#   herdr-show --hide <window>     hide it from herdr; the agent keeps running
+#   herdr-show --list              windows and whether herdr shows them
+#
+# <window> is a tmux window name or id (@12). To control another machine, run
+# this script there:  ssh <machine> herdr-show <window>
+#
+# Show = a single-window tmux session (herdr-view-<id>) holding the window,
+# plus an hc terminal attached to it, labelled so herdr shows it and muxlight
+# can find it. Same shape herdr-focus and herdr-agent create.
+set -uo pipefail
+
+HC="${HC:-$HOME/.local/bin/hc}"
+PREFIX="herdr-view-"
+
+die() { echo "herdr-show: $*" >&2; exit 1; }
+
+command -v tmux >/dev/null 2>&1 || die "tmux not found"
+[ -x "$HC" ] || die "hc not found at $HC"
+
+# Every window except the view sessions' own links.
+windows() {
+  tmux list-windows -a -F '#{window_id}|#{session_name}|#{window_name}' |
+    grep -v "|$PREFIX"
+}
+
+resolve() {  # name or @id -> "@id|session|name"; fails if missing or ambiguous
+  local want="$1" hits n
+  hits=$(windows | awk -F'|' -v w="$want" '$1==w || $3==w')
+  n=$(printf '%s\n' "$hits" | grep -c .)
+  [ "$n" -eq 1 ] || { [ "$n" -eq 0 ] && die "no window named '$want'"; die "'$want' matches $n windows; use the @id"; }
+  printf '%s\n' "$hits"
+}
+
+terminal_for() {  # window number -> terminal address, or empty
+  "$HC" ls --json --label "herdr.window=$1" 2>/dev/null |
+    python3 -c 'import json,sys; t=json.load(sys.stdin).get("terminals",[]); print(t[0]["address"] if t else "")'
+}
+
+space_id() {  # the herdr space this machine's terminals belong to
+  local a
+  for a in $("$HC" ls --json 2>/dev/null | python3 -c 'import json,sys; [print(t["address"]) for t in json.load(sys.stdin).get("terminals",[])]'); do
+    "$HC" get "$a" --json 2>/dev/null |
+      python3 -c 'import json,sys; print(json.load(sys.stdin).get("labels",{}).get("herdr.space",""))'
+  done | grep . | sort -u | { read -r first; read -r second && return 0; printf %s "$first"; }
+}
+
+show() {
+  local row wid num name cwd space addr
+  row=$(resolve "$1") || exit 1
+  wid=${row%%|*}; num=${wid#@}; name=${row##*|}
+
+  addr=$(terminal_for "$num")
+  [ -z "$addr" ] || { echo "$name already in herdr as $addr"; return 0; }
+
+  space=${HERDR_SPACE:-$(space_id)}
+  [ -n "$space" ] || die "can't tell which herdr space to use; set HERDR_SPACE=<id>"
+
+  if ! tmux has-session -t "$PREFIX$num" 2>/dev/null; then
+    local ph
+    ph=$(tmux new-session -d -s "$PREFIX$num" -n __view_placeholder -P -F '#{window_id}')
+    tmux link-window -s "$wid" -t "$PREFIX$num:90"
+    [ -z "$ph" ] || tmux kill-window -t "$ph"
+  fi
+
+  cwd=$(tmux display-message -p -t "$wid" '#{pane_current_path}')
+  "$HC" run --bg --name "$name" --cwd "${cwd:-$HOME}" \
+    --label "herdr.space=$space" --label "herdr.window=$num" \
+    tmux attach -t "$PREFIX$num" >/dev/null || die "hc run failed"
+
+  # muxlight reports on change; publish the current state so the tab is right now.
+  local state kind app body
+  IFS='|' read -r state kind app < <(tmux list-panes -t "$wid" -F '#{@pst_state}|#{@pst_kind}|#{@pst_app}' | head -1)
+  if [ -n "${state:-}" ]; then
+    body="state=$state"; [ -z "${kind:-}" ] || body+=":kind=$kind"; [ -z "${app:-}" ] || body+=":app=$app"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      addr=$(terminal_for "$num")
+      [ -z "$addr" ] || break
+      sleep 1
+    done
+    [ -z "$addr" ] || "$HC" report "$body" --terminal "$addr" >/dev/null 2>&1
+  fi
+  echo "$name shown${addr:+ as $addr}"
+}
+
+hide() {
+  local row wid num addr
+  row=$(resolve "$1") || exit 1
+  wid=${row%%|*}; num=${wid#@}
+  addr=$(terminal_for "$num")
+  [ -z "$addr" ] || { "$HC" kill "$addr" >/dev/null 2>&1; "$HC" rm "$addr" >/dev/null 2>&1; }
+  tmux kill-session -t "$PREFIX$num" 2>/dev/null
+  echo "${row##*|} hidden; the agent is still running"
+}
+
+list() {
+  local wid sess name addr
+  while IFS='|' read -r wid sess name; do
+    addr=$(terminal_for "${wid#@}")
+    printf '%-6s %-28s %s\n' "$wid" "$sess:$name" "${addr:-not in herdr}"
+  done < <(windows)
+}
+
+case "${1:-}" in
+  ""|-h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  --list) list ;;
+  --hide) [ $# -ge 2 ] || die "usage: herdr-show --hide <window>"; shift; for w in "$@"; do hide "$w"; done ;;
+  *) for w in "$@"; do show "$w"; done ;;
+esac
