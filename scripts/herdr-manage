@@ -11,8 +11,8 @@
 # A herdr space is a tmux session: a window in session "servo" is shown in the
 # space "servo". Showing = a single-window tmux session (herdr-view-<id>) holding
 # the window, plus an hc terminal attached to it, labelled with the space and
-# window so herdr shows it and muxlight can find it. Same shape herdr-focus and
-# herdr-agent create. The space has to exist already (create it from herdr).
+# window so herdr shows it and muxlight can find it. herdr-agent creates the
+# same shape for agents started from herdr. The space has to exist already.
 set -uo pipefail
 
 HC="${HC:-$HOME/.local/bin/hc}"

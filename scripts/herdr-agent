@@ -77,7 +77,7 @@ fi
 # to <space> directly would make every herdr tab another client of the same
 # session, and a session has one current window, so switching windows in one
 # tab would drag all the others with it. The view gives this tab its own.
-# Named by window id to match what herdr-focus creates for windows made
+# Named by window id to match what herdr-manage creates for windows made
 # outside herdr.
 view="herdr-view-${target#@}"
 if ! tmux has-session -t "=$view" 2>/dev/null; then

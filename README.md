@@ -63,7 +63,7 @@ config/
 scripts/              -> ~/scripts/     # User scripts (in PATH)
   osc52-copy                            # tmux clipboard helper
   codex-config-merge                    # merge shared Codex config into the live one (needs uv)
-  herdr-agent, herdr-focus, herdr-manage # herdr + tmux integration
+  herdr-agent, herdr-manage             # herdr + tmux integration
   t                                     # tmux session manager
 test-install.sh                         # Installation test
 install.sh                              # Main install script
