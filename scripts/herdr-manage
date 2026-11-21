@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Show a tmux window in herdr, from the machine the window lives on.
+# Choose which tmux windows herdr shows, from the machine the windows live on.
 #
-#   herdr-show <window>            show the window in herdr
-#   herdr-show --hide <window>     hide it from herdr; the agent keeps running
-#   herdr-show --list              windows and whether herdr shows them
+#   herdr-manage show <session>:<window>   show the window in herdr
+#   herdr-manage hide <session>:<window>   hide it from herdr; the agent keeps running
+#   herdr-manage list [session]            windows and whether herdr shows them
 #
-# <window> is a tmux window name or id (@12). To control another machine, run
-# this script there:  ssh <machine> herdr-show <window>
+# <window> is a name or an @id, looked up only inside <session>. To control
+# another machine, run this script there:  ssh <machine> herdr-manage show s:w
 #
 # A herdr space is a tmux session: a window in session "servo" is shown in the
 # space "servo". Showing = a single-window tmux session (herdr-view-<id>) holding
@@ -18,25 +18,35 @@ set -uo pipefail
 HC="${HC:-$HOME/.local/bin/hc}"
 PREFIX="herdr-view-"
 
-die() { echo "herdr-show: $*" >&2; exit 1; }
+die() { echo "herdr-manage: $*" >&2; exit 1; }
 
 command -v tmux >/dev/null 2>&1 || die "tmux not found"
 [ -x "$HC" ] || die "hc not found at $HC"
 
 pyjson() { python3 -c "$1"; }
 
-# Every window except the view sessions' own links.
+# Windows of one session, or of every session when none is given. The view
+# sessions' own links are left out.
 windows() {
-  tmux list-windows -a -F '#{window_id}|#{session_name}|#{window_name}' |
-    grep -v "|$PREFIX"
+  if [ -n "${1:-}" ]; then
+    tmux list-windows -t "=$1" -F '#{window_id}|#{session_name}|#{window_name}' 2>/dev/null
+  else
+    tmux list-windows -a -F '#{window_id}|#{session_name}|#{window_name}' | grep -v "|$PREFIX"
+  fi
 }
 
-resolve() {  # name or @id -> "@id|session|name"; fails if missing or ambiguous
-  local want="$1" hits n
-  hits=$(windows | awk -F'|' -v w="$want" '$1==w || $3==w')
+resolve() {  # "session:window" -> "@id|session|name"; fails if missing or ambiguous
+  local target="$1" sess win hits n
+  case "$target" in
+    *:*) sess=${target%%:*}; win=${target#*:} ;;
+    *) die "'$target' needs a session: <session>:<window>" ;;
+  esac
+  [ -n "$sess" ] && [ -n "$win" ] || die "'$target' needs a session: <session>:<window>"
+  tmux has-session -t "=$sess" 2>/dev/null || die "no tmux session '$sess'"
+  hits=$(windows "$sess" | awk -F'|' -v w="$win" '$1==w || $3==w')
   n=$(printf '%s\n' "$hits" | grep -c .)
-  [ "$n" -eq 0 ] && die "no window named '$want'"
-  [ "$n" -eq 1 ] || die "'$want' matches $n windows; use the @id"
+  [ "$n" -eq 0 ] && die "no window '$win' in session '$sess'"
+  [ "$n" -eq 1 ] || die "'$win' matches $n windows in '$sess'; use the @id"
   printf '%s\n' "$hits"
 }
 
@@ -134,12 +144,16 @@ list() {
   while IFS='|' read -r wid sess win; do
     addr=$(terminal_for "${wid#@}")
     printf '%-6s %-28s %s\n' "$wid" "$sess:$win" "${addr:-not in herdr}"
-  done < <(windows)
+  done < <(windows "${1:-}")
 }
 
-case "${1:-}" in
-  ""|-h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-  --list) list ;;
-  --hide) [ $# -ge 2 ] || die "usage: herdr-show --hide <window>"; shift; for w in "$@"; do hide "$w"; done ;;
-  *) for w in "$@"; do show "$w"; done ;;
+usage() { sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; }
+
+cmd="${1:-}"; [ $# -eq 0 ] || shift
+case "$cmd" in
+  show) [ $# -ge 1 ] || die "usage: herdr-manage show <session>:<window>"; for w in "$@"; do show "$w"; done ;;
+  hide) [ $# -ge 1 ] || die "usage: herdr-manage hide <session>:<window>"; for w in "$@"; do hide "$w"; done ;;
+  list) list "${1:-}" ;;
+  ""|-h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
 esac
