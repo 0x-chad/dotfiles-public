@@ -120,13 +120,13 @@ hide() {
   IFS='|' read -r wid sess win <<<"$row"; num=${wid#@}
   addr=$(terminal_for "$num")
   [ -n "$addr" ] || { echo "$win is not shown in herdr"; return 0; }
-  # Closing the last terminal of a space deletes the space.
-  [ "$(terminals_in "$sess" | grep -c .)" -gt 1 ] ||
-    die "$win is the last terminal in space '$sess'; hiding it would delete the space"
+  local last=""
+  [ "$(terminals_in "$sess" | grep -c .)" -gt 1 ] || last=1
   "$HC" kill "$addr" >/dev/null 2>&1
   "$HC" rm "$addr" >/dev/null 2>&1
   tmux kill-session -t "$PREFIX$num" 2>/dev/null
   echo "$win hidden; the agent is still running"
+  [ -z "$last" ] || echo "note: that was the last terminal in space '$sess', so herdr removes the space; recreate it with herdr-app space.new"
 }
 
 list() {
