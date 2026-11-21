@@ -440,20 +440,38 @@ install_scripts() {
 
 # herdr's core (hc). Its own installer checks the download against the
 # release manifest and leaves a newer install alone. Existing installs are
-# kept; update with `hc update`.
+# kept; update with `hc update`. On Linux the core is started now and at every
+# boot (cron, like the tmux autosave); the Mac's core belongs to the app.
 install_herdr_core() {
   echo ""
   echo "=== herdr core (hc) ==="
   local bin="$HOME/.local/bin" tmp
   if [[ -x "$bin/hc" ]]; then
     echo "  hc already installed ($("$bin/hc" --version 2>/dev/null | head -1))"
-    return
+  else
+    mkdir -p "$bin"
+    tmp="$(mktemp)"
+    curl -fsSL https://releases.herdr.dev/core/install.sh -o "$tmp" || { rm -f "$tmp"; die "could not download the herdr core installer"; }
+    sh "$tmp" || { rm -f "$tmp"; die "herdr core install failed"; }
+    rm -f "$tmp"
   fi
-  mkdir -p "$bin"
-  tmp="$(mktemp)"
-  curl -fsSL https://releases.herdr.dev/core/install.sh -o "$tmp" || { rm -f "$tmp"; die "could not download the herdr core installer"; }
-  sh "$tmp" || { rm -f "$tmp"; die "herdr core install failed"; }
-  rm -f "$tmp"
+
+  [[ "$(uname)" == "Darwin" ]] && return
+  "$bin/hc" server start >/dev/null 2>&1 || die "could not start the herdr core"
+  echo "  Core running"
+
+  command -v crontab >/dev/null 2>&1 || die "crontab not found; the herdr core boot start cannot be installed"
+  local marker_start="# DOTFILES HERDR CORE START"
+  local marker_end="# DOTFILES HERDR CORE END"
+  local cron_tmp
+  cron_tmp="$(mktemp)"
+  ((crontab -l 2>/dev/null || true) | sed "/$marker_start/,/$marker_end/d"; echo "$marker_start"; echo "@reboot $bin/hc server start >/dev/null 2>&1"; echo "$marker_end") > "$cron_tmp"
+  if ! crontab "$cron_tmp"; then
+    rm -f "$cron_tmp"
+    die "failed to install the herdr core boot start"
+  fi
+  rm -f "$cron_tmp"
+  echo "  Installed crontab boot start"
 }
 
 # muxlight sits between an agent and tmux so the agent's status reaches herdr.
