@@ -438,6 +438,24 @@ install_scripts() {
   fi
 }
 
+# herdr's core (hc). Its own installer checks the download against the
+# release manifest and leaves a newer install alone. Existing installs are
+# kept; update with `hc update`.
+install_herdr_core() {
+  echo ""
+  echo "=== herdr core (hc) ==="
+  local bin="$HOME/.local/bin" tmp
+  if [[ -x "$bin/hc" ]]; then
+    echo "  hc already installed ($("$bin/hc" --version 2>/dev/null | head -1))"
+    return
+  fi
+  mkdir -p "$bin"
+  tmp="$(mktemp)"
+  curl -fsSL https://releases.herdr.dev/core/install.sh -o "$tmp" || { rm -f "$tmp"; die "could not download the herdr core installer"; }
+  sh "$tmp" || { rm -f "$tmp"; die "herdr core install failed"; }
+  rm -f "$tmp"
+}
+
 # muxlight sits between an agent and tmux so the agent's status reaches herdr.
 # Built from source: the repo is public, and the only requirement is Go
 # (ensure_basic_prereqs).
@@ -725,7 +743,7 @@ if has_component "shell" || has_component "tmux" || has_component "scripts"; the
 fi
 has_component "shell"    && install_shell
 has_component "tmux"     && install_tmux
-has_component "scripts"  && { install_scripts; install_muxlight; }
+has_component "scripts"  && { install_scripts; install_herdr_core; install_muxlight; }
 if has_component "tmux" || has_component "scripts"; then
   install_tmux_autosave
 fi
