@@ -8,9 +8,11 @@
 # <window> is a tmux window name or id (@12). To control another machine, run
 # this script there:  ssh <machine> herdr-show <window>
 #
-# Show = a single-window tmux session (herdr-view-<id>) holding the window,
-# plus an hc terminal attached to it, labelled so herdr shows it and muxlight
-# can find it. Same shape herdr-focus and herdr-agent create.
+# A herdr space is a tmux session: a window in session "servo" is shown in the
+# space "servo". Showing = a single-window tmux session (herdr-view-<id>) holding
+# the window, plus an hc terminal attached to it, labelled with the space and
+# window so herdr shows it and muxlight can find it. Same shape herdr-focus and
+# herdr-agent create. The space has to exist already (create it from herdr).
 set -uo pipefail
 
 HC="${HC:-$HOME/.local/bin/hc}"
@@ -20,6 +22,8 @@ die() { echo "herdr-show: $*" >&2; exit 1; }
 
 command -v tmux >/dev/null 2>&1 || die "tmux not found"
 [ -x "$HC" ] || die "hc not found at $HC"
+
+pyjson() { python3 -c "$1"; }
 
 # Every window except the view sessions' own links.
 windows() {
@@ -31,33 +35,55 @@ resolve() {  # name or @id -> "@id|session|name"; fails if missing or ambiguous
   local want="$1" hits n
   hits=$(windows | awk -F'|' -v w="$want" '$1==w || $3==w')
   n=$(printf '%s\n' "$hits" | grep -c .)
-  [ "$n" -eq 1 ] || { [ "$n" -eq 0 ] && die "no window named '$want'"; die "'$want' matches $n windows; use the @id"; }
+  [ "$n" -eq 0 ] && die "no window named '$want'"
+  [ "$n" -eq 1 ] || die "'$want' matches $n windows; use the @id"
   printf '%s\n' "$hits"
 }
 
 terminal_for() {  # window number -> terminal address, or empty
   "$HC" ls --json --label "herdr.window=$1" 2>/dev/null |
-    python3 -c 'import json,sys; t=json.load(sys.stdin).get("terminals",[]); print(t[0]["address"] if t else "")'
+    pyjson 'import json,sys; t=json.load(sys.stdin).get("terminals",[]); print(t[0]["address"] if t else "")'
 }
 
-space_id() {  # the herdr space this machine's terminals belong to
-  local a
-  for a in $("$HC" ls --json 2>/dev/null | python3 -c 'import json,sys; [print(t["address"]) for t in json.load(sys.stdin).get("terminals",[])]'); do
-    "$HC" get "$a" --json 2>/dev/null |
-      python3 -c 'import json,sys; print(json.load(sys.stdin).get("labels",{}).get("herdr.space",""))'
-  done | grep . | sort -u | { read -r first; read -r second && return 0; printf %s "$first"; }
+terminals_in() {  # space name -> "address" lines, one per terminal shown in it
+  "$HC" ls --json 2>/dev/null | python3 -c '
+import json, sys
+for t in json.load(sys.stdin).get("terminals", []):
+    if t.get("where", "").split(" / ")[0] == sys.argv[1]:
+        print(t["address"])' "$1"
+}
+
+space_id() {  # space name -> its id, read from a terminal already in that space
+  local a id
+  for a in $(terminals_in "$1"); do
+    id=$("$HC" get "$a" --json 2>/dev/null |
+      pyjson 'import json,sys; print(json.load(sys.stdin).get("labels",{}).get("herdr.space",""))')
+    [ -z "$id" ] || { printf %s "$id"; return 0; }
+  done
+  return 1
+}
+
+term_name() {  # window name, id -> a legal, unique hc name
+  local win="$1" num="$2" taken
+  taken=$("$HC" ls --json 2>/dev/null | pyjson 'import json,sys; print("\n".join(t["name"] for t in json.load(sys.stdin).get("terminals",[])))')
+  python3 - "$win" "$num" "$taken" <<'PY'
+import re, sys
+win, num, taken = sys.argv[1], sys.argv[2], set(sys.argv[3].split("\n"))
+base = re.sub(r"[^a-z0-9_-]+", "-", win.lower()).strip("-_")[:28] or "window"
+print(base if base not in taken else ("%s-%s" % (base[:24], num))[:32])
+PY
 }
 
 show() {
-  local row wid num name cwd space addr
+  local row wid num sess win addr space name cwd
   row=$(resolve "$1") || exit 1
-  wid=${row%%|*}; num=${wid#@}; name=${row##*|}
+  IFS='|' read -r wid sess win <<<"$row"; num=${wid#@}
 
   addr=$(terminal_for "$num")
-  [ -z "$addr" ] || { echo "$name already in herdr as $addr"; return 0; }
+  [ -z "$addr" ] || { echo "$win already in herdr as $addr"; return 0; }
 
-  space=${HERDR_SPACE:-$(space_id)}
-  [ -n "$space" ] || die "can't tell which herdr space to use; set HERDR_SPACE=<id>"
+  space=$(space_id "$sess") ||
+    die "no herdr space '$sess' with a terminal in it; create the space in herdr first"
 
   if ! tmux has-session -t "$PREFIX$num" 2>/dev/null; then
     local ph
@@ -66,41 +92,48 @@ show() {
     [ -z "$ph" ] || tmux kill-window -t "$ph"
   fi
 
+  name=$(term_name "$win" "$num")
   cwd=$(tmux display-message -p -t "$wid" '#{pane_current_path}')
   "$HC" run --bg --name "$name" --cwd "${cwd:-$HOME}" \
     --label "herdr.space=$space" --label "herdr.window=$num" \
-    tmux attach -t "$PREFIX$num" >/dev/null || die "hc run failed"
+    tmux attach -t "$PREFIX$num" >/dev/null || die "hc run failed for '$name'"
+
+  # hc can drop a run without saying so; confirm the terminal exists.
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    addr=$(terminal_for "$num"); [ -z "$addr" ] || break; sleep 1
+  done
+  [ -n "$addr" ] || { tmux kill-session -t "$PREFIX$num" 2>/dev/null; die "hc did not create a terminal for '$name'"; }
 
   # muxlight reports on change; publish the current state so the tab is right now.
   local state kind app body
   IFS='|' read -r state kind app < <(tmux list-panes -t "$wid" -F '#{@pst_state}|#{@pst_kind}|#{@pst_app}' | head -1)
   if [ -n "${state:-}" ]; then
     body="state=$state"; [ -z "${kind:-}" ] || body+=":kind=$kind"; [ -z "${app:-}" ] || body+=":app=$app"
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-      addr=$(terminal_for "$num")
-      [ -z "$addr" ] || break
-      sleep 1
-    done
-    [ -z "$addr" ] || "$HC" report "$body" --terminal "$addr" >/dev/null 2>&1
+    "$HC" report "$body" --terminal "$addr" >/dev/null 2>&1
   fi
-  echo "$name shown${addr:+ as $addr}"
+  echo "$name shown as $addr in space $sess"
 }
 
 hide() {
-  local row wid num addr
+  local row wid num sess win addr
   row=$(resolve "$1") || exit 1
-  wid=${row%%|*}; num=${wid#@}
+  IFS='|' read -r wid sess win <<<"$row"; num=${wid#@}
   addr=$(terminal_for "$num")
-  [ -z "$addr" ] || { "$HC" kill "$addr" >/dev/null 2>&1; "$HC" rm "$addr" >/dev/null 2>&1; }
+  [ -n "$addr" ] || { echo "$win is not shown in herdr"; return 0; }
+  # Closing the last terminal of a space deletes the space.
+  [ "$(terminals_in "$sess" | grep -c .)" -gt 1 ] ||
+    die "$win is the last terminal in space '$sess'; hiding it would delete the space"
+  "$HC" kill "$addr" >/dev/null 2>&1
+  "$HC" rm "$addr" >/dev/null 2>&1
   tmux kill-session -t "$PREFIX$num" 2>/dev/null
-  echo "${row##*|} hidden; the agent is still running"
+  echo "$win hidden; the agent is still running"
 }
 
 list() {
-  local wid sess name addr
-  while IFS='|' read -r wid sess name; do
+  local wid sess win addr
+  while IFS='|' read -r wid sess win; do
     addr=$(terminal_for "${wid#@}")
-    printf '%-6s %-28s %s\n' "$wid" "$sess:$name" "${addr:-not in herdr}"
+    printf '%-6s %-28s %s\n' "$wid" "$sess:$win" "${addr:-not in herdr}"
   done < <(windows)
 }
 
