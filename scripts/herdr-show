@@ -126,7 +126,7 @@ hide() {
   "$HC" rm "$addr" >/dev/null 2>&1
   tmux kill-session -t "$PREFIX$num" 2>/dev/null
   echo "$win hidden; the agent is still running"
-  [ -z "$last" ] || echo "note: that was the last terminal in space '$sess', so herdr removes the space; recreate it with herdr-app space.new"
+  [ -z "$last" ] || echo "note: that was the last terminal in space '$sess', so herdr removes the space; recreate it from a herdr client"
 }
 
 list() {
