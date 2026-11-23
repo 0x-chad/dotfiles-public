@@ -92,6 +92,22 @@ def terminal_for(num):
     return found[0]["address"] if found else None
 
 
+def links(view, wid):
+    """Whether the view session holds this window (not a restored copy)."""
+    return wid in tmux("list-windows", "-t", "=" + view, "-F", "#{window_id}").split()
+
+
+def attached(address, view, wid):
+    """Whether the terminal is running `tmux attach` to a view of this window."""
+    code, out, _ = run(HC, "get", address, "--json")
+    try:
+        record = json.loads(out) if code == 0 else {}
+    except ValueError:
+        return False
+    argv = (record.get("foreground") or {}).get("argv") or []
+    return argv[:2] == ["tmux", "attach"] and view in argv and links(view, wid)
+
+
 def terminal_name(window, num):
     """hc names are 1-32 of a-z 0-9 - _ and unique among live terminals: the
     window name made legal, with the window id added if it's taken."""
@@ -233,15 +249,22 @@ def show(target):
     num = wid.lstrip("@")
     folder = tmux("display-message", "-p", "-t", wid, "#{pane_current_path}").strip() or HOME
 
+    view = PREFIX + num
     address = terminal_for(num)
-    if address:
+    if address and attached(address, view, wid):
         place(None, session, folder, window, address)
         print("%s already in herdr as %s" % (window, address))
         return
+    if address:
+        # Left from before a reboot or tmux restart: a bare shell, or a view
+        # that no longer links this window. Replace it.
+        run(HC, "kill", address)
+        run(HC, "rm", address)
+        unplace(address)
 
     space = space_id(session)
-    view = PREFIX + num
-    if run("tmux", "has-session", "-t", "=" + view)[0]:
+    if not links(view, wid):
+        tmux("kill-session", "-t", "=" + view)
         placeholder = tmux("new-session", "-d", "-s", view, "-n", "__view_placeholder",
                            "-P", "-F", "#{window_id}").strip()
         tmux("link-window", "-s", wid, "-t", view + ":90")

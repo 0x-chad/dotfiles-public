@@ -436,6 +436,8 @@ declare -a EMPTY_CODEX_PANES=()
 declare -a EMPTY_OMP_PANES=()
 
 while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pane_id; do
+  # herdr's view sessions only link windows saved under their own session.
+  case "$sess_name" in herdr-view-*) continue ;; esac
   [ "$pane_id" = "$SELF_PANE" ] && continue
   should_skip_session "$sess_name" && continue
 
