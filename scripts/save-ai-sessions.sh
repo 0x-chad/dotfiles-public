@@ -437,6 +437,7 @@ trap 'rm -f "$TMPFILE" "$TMPFILE.next" "$CODEX_MATCHES"; rm -rf "${SNAP_DIR:-}"'
 echo "[]" > "$TMPFILE"
 
 found=0
+shared=0
 skipped=0
 unresolved=()
 
@@ -452,6 +453,7 @@ for pass in 0 1; do
       case "$saved_ids" in
         *" $session_id "*)
           echo "  SAME ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] — shows a sub-agent of $session_id, saved for another window"
+          shared=$((shared + 1))
           continue ;;
       esac
       saved_ids+="$session_id "
@@ -480,7 +482,7 @@ fi
 if [ "$DRY_RUN" = true ]; then
   echo ""
   echo "DRY RUN — identified $found/$total sessions ($skipped missed)."
-  if [ "$found" -ne "$total" ]; then
+  if [ $((found + shared)) -ne "$total" ]; then
     exit 1
   fi
   exit 0
