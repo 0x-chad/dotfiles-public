@@ -134,7 +134,7 @@ omp_session_is_unpersisted() {
   # Mirrors codex_session_is_unpersisted.
   local pane_id="$1"
   local pane_tty tty_key marker transcript state
-  pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
+  pane_tty=$(omp_tty "$pane_id" || true)
   [ -n "$pane_tty" ] || return 1
   tty_key="${pane_tty#/dev/}"
   tty_key="${tty_key//\//-}"
@@ -147,12 +147,26 @@ omp_session_is_unpersisted() {
   return 0
 }
 
+omp_tty() {
+  # The terminal omp itself runs on. Under muxlight that is muxlight's own
+  # pty, not the pane's, and a pane terminal's old marker may be stale.
+  local pane_id="$1" pane_pid pid tty
+  pane_pid=$(tmux display-message -p -t "$pane_id" '#{pane_pid}' 2>/dev/null || true)
+  for pid in $(process_tree "$pane_pid"); do
+    ps_args "$pid" | grep -Eq '(^|[ /])omp([[:space:]]|$)' || continue
+    ps_args "$pid" | grep -q 'muxlight' && continue
+    tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$tty" in ""|"?") ;; *) printf '/dev/%s\n' "$tty"; return 0 ;; esac
+  done
+  tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null
+}
+
 extract_omp_session_id() {
   local pane_id="$1"
   local pane_tty tty_key marker transcript sid
   # OMP records the active transcript by terminal, so session discovery does
   # not require chat probing or an external agent registry.
-  pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
+  pane_tty=$(omp_tty "$pane_id" || true)
   [ -n "$pane_tty" ] || return 1
   tty_key="${pane_tty#/dev/}"
   tty_key="${tty_key//\//-}"
