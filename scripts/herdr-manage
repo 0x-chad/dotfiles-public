@@ -1,159 +1,321 @@
-#!/usr/bin/env bash
-# Choose which tmux windows herdr shows, from the machine the windows live on.
-#
-#   herdr-manage show <session>:<window>   show the window in herdr
-#   herdr-manage hide <session>:<window>   hide it from herdr; the agent keeps running
-#   herdr-manage list [session]            windows and whether herdr shows them
-#
-# <window> is a name or an @id, looked up only inside <session>. To control
-# another machine, run this script there:  ssh <machine> herdr-manage show s:w
-#
-# A herdr space is a tmux session: a window in session "servo" is shown in the
-# space "servo". Showing = a single-window tmux session (herdr-view-<id>) holding
-# the window, plus an hc terminal attached to it, labelled with the space and
-# window so herdr shows it and muxlight can find it. herdr-agent creates the
-# same shape for agents started from herdr. The space has to exist already.
-set -uo pipefail
+#!/usr/bin/env python3
+"""Choose which tmux windows herdr shows, from the machine the windows live on.
 
-HC="${HC:-$HOME/.local/bin/hc}"
-PREFIX="herdr-view-"
+  herdr-manage show <session>:<window>   show the window in herdr
+  herdr-manage hide <session>:<window>   hide it from herdr; the agent keeps running
+  herdr-manage list [session]            windows and whether herdr shows them
 
-die() { echo "herdr-manage: $*" >&2; exit 1; }
+<window> is a name or an @id, looked up only inside <session>. To control
+another machine, run this script there:  ssh <machine> herdr-manage show s:w
 
-command -v tmux >/dev/null 2>&1 || die "tmux not found"
-[ -x "$HC" ] || die "hc not found at $HC"
+A herdr space is a tmux session and a tab is a window. Showing a window makes a
+one-window tmux session (herdr-view-<id>) that links it, plus an hc terminal
+attached to that view, labelled so muxlight can find it. The space and tab go
+into herdr's layout, which this machine's core keeps (the "herdr-app"
+document), named after the session and the window. Names someone set in herdr
+are left alone. herdr-agent creates the same shape for agents started from
+herdr.
+"""
+import json
+import os
+import re
+import secrets
+import subprocess
+import sys
+import time
 
-pyjson() { python3 -c "$1"; }
+HC = os.environ.get("HC", os.path.expanduser("~/.local/bin/hc"))
+HOME = os.path.expanduser("~")
+PREFIX = "herdr-view-"
+LAYOUT = "herdr-app"
+WINDOW_FORMAT = "#{window_id}|#{session_name}|#{window_name}"
 
-# Windows of one session, or of every session when none is given. The view
-# sessions' own links are left out.
-windows() {
-  if [ -n "${1:-}" ]; then
-    tmux list-windows -t "=$1" -F '#{window_id}|#{session_name}|#{window_name}' 2>/dev/null
-  else
-    tmux list-windows -a -F '#{window_id}|#{session_name}|#{window_name}' | grep -v "|$PREFIX"
-  fi
-}
 
-resolve() {  # "session:window" -> "@id|session|name"; fails if missing or ambiguous
-  local target="$1" sess win hits n
-  case "$target" in
-    *:*) sess=${target%%:*}; win=${target#*:} ;;
-    *) die "'$target' needs a session: <session>:<window>" ;;
-  esac
-  [ -n "$sess" ] && [ -n "$win" ] || die "'$target' needs a session: <session>:<window>"
-  tmux has-session -t "=$sess" 2>/dev/null || die "no tmux session '$sess'"
-  hits=$(windows "$sess" | awk -F'|' -v w="$win" '$1==w || $3==w')
-  n=$(printf '%s\n' "$hits" | grep -c .)
-  [ "$n" -eq 0 ] && die "no window '$win' in session '$sess'"
-  [ "$n" -eq 1 ] || die "'$win' matches $n windows in '$sess'; use the @id"
-  printf '%s\n' "$hits"
-}
+def die(message):
+    print("herdr-manage: " + message, file=sys.stderr)
+    sys.exit(1)
 
-terminal_for() {  # window number -> terminal address, or empty
-  "$HC" ls --json --label "herdr.window=$1" 2>/dev/null |
-    pyjson 'import json,sys; t=json.load(sys.stdin).get("terminals",[]); print(t[0]["address"] if t else "")'
-}
 
-terminals_in() {  # space name -> "address" lines, one per terminal shown in it
-  "$HC" ls --json 2>/dev/null | python3 -c '
-import json, sys
-for t in json.load(sys.stdin).get("terminals", []):
-    if t.get("where", "").split(" / ")[0] == sys.argv[1]:
-        print(t["address"])' "$1"
-}
+def run(*argv, input=None):
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, input=input)
+    except FileNotFoundError:
+        return 127, "", argv[0] + " not found"
+    return p.returncode, p.stdout, p.stderr
 
-space_id() {  # space name -> its id, read from a terminal already in that space
-  local a id
-  for a in $(terminals_in "$1"); do
-    id=$("$HC" get "$a" --json 2>/dev/null |
-      pyjson 'import json,sys; print(json.load(sys.stdin).get("labels",{}).get("herdr.space",""))')
-    [ -z "$id" ] || { printf %s "$id"; return 0; }
-  done
-  return 1
-}
 
-term_name() {  # window name, id -> a legal, unique hc name
-  local win="$1" num="$2" taken
-  taken=$("$HC" ls --json 2>/dev/null | pyjson 'import json,sys; print("\n".join(t["name"] for t in json.load(sys.stdin).get("terminals",[])))')
-  python3 - "$win" "$num" "$taken" <<'PY'
-import re, sys
-win, num, taken = sys.argv[1], sys.argv[2], set(sys.argv[3].split("\n"))
-base = re.sub(r"[^a-z0-9_-]+", "-", win.lower()).strip("-_")[:28] or "window"
-print(base if base not in taken else ("%s-%s" % (base[:24], num))[:32])
-PY
-}
+def tmux(*args):
+    return run("tmux", *args)[1]
 
-show() {
-  local row wid num sess win addr space name cwd
-  row=$(resolve "$1") || exit 1
-  IFS='|' read -r wid sess win <<<"$row"; num=${wid#@}
 
-  addr=$(terminal_for "$num")
-  [ -z "$addr" ] || { echo "$win already in herdr as $addr"; return 0; }
+# ── tmux ────────────────────────────────────────────────────────────
 
-  space=$(space_id "$sess") ||
-    die "no herdr space '$sess' with a terminal in it; create the space in herdr first"
+def windows(session=None):
+    """(id, session, name) for the windows of one session, or of every session.
+    The view sessions' own links are left out."""
+    if session:
+        out = tmux("list-windows", "-t", "=" + session, "-F", WINDOW_FORMAT)
+    else:
+        out = tmux("list-windows", "-a", "-F", WINDOW_FORMAT)
+    rows = [line.split("|", 2) for line in out.splitlines() if line]
+    return [r for r in rows if not r[1].startswith(PREFIX)]
 
-  if ! tmux has-session -t "$PREFIX$num" 2>/dev/null; then
-    local ph
-    ph=$(tmux new-session -d -s "$PREFIX$num" -n __view_placeholder -P -F '#{window_id}')
-    tmux link-window -s "$wid" -t "$PREFIX$num:90"
-    [ -z "$ph" ] || tmux kill-window -t "$ph"
-  fi
 
-  name=$(term_name "$win" "$num")
-  cwd=$(tmux display-message -p -t "$wid" '#{pane_current_path}')
-  "$HC" run --bg --name "$name" --cwd "${cwd:-$HOME}" \
-    --label "herdr.space=$space" --label "herdr.window=$num" \
-    tmux attach -t "$PREFIX$num" >/dev/null || die "hc run failed for '$name'"
+def resolve(target):
+    """"session:window" -> (id, session, name). The window is a name or an @id."""
+    session, sep, window = target.partition(":")
+    if not (sep and session and window):
+        die("'%s' needs a session: <session>:<window>" % target)
+    if run("tmux", "has-session", "-t", "=" + session)[0]:
+        die("no tmux session '%s'" % session)
+    hits = [w for w in windows(session) if window in (w[0], w[2])]
+    if not hits:
+        die("no window '%s' in session '%s'" % (window, session))
+    if len(hits) > 1:
+        die("'%s' matches %d windows in '%s'; use the @id" % (window, len(hits), session))
+    return hits[0]
 
-  # hc can drop a run without saying so; confirm the terminal exists.
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    addr=$(terminal_for "$num"); [ -z "$addr" ] || break; sleep 1
-  done
-  [ -n "$addr" ] || { tmux kill-session -t "$PREFIX$num" 2>/dev/null; die "hc did not create a terminal for '$name'"; }
 
-  # muxlight reports on change; publish the current state so the tab is right now.
-  local state kind app body
-  IFS='|' read -r state kind app < <(tmux list-panes -t "$wid" -F '#{@pst_state}|#{@pst_kind}|#{@pst_app}' | head -1)
-  if [ -n "${state:-}" ]; then
-    body="state=$state"; [ -z "${kind:-}" ] || body+=":kind=$kind"; [ -z "${app:-}" ] || body+=":app=$app"
-    "$HC" report "$body" --terminal "$addr" >/dev/null 2>&1
-  fi
-  echo "$name shown as $addr in space $sess"
-}
+# ── hc terminals ────────────────────────────────────────────────────
 
-hide() {
-  local row wid num sess win addr
-  row=$(resolve "$1") || exit 1
-  IFS='|' read -r wid sess win <<<"$row"; num=${wid#@}
-  addr=$(terminal_for "$num")
-  [ -n "$addr" ] || { echo "$win is not shown in herdr"; return 0; }
-  local last=""
-  [ "$(terminals_in "$sess" | grep -c .)" -gt 1 ] || last=1
-  "$HC" kill "$addr" >/dev/null 2>&1
-  "$HC" rm "$addr" >/dev/null 2>&1
-  tmux kill-session -t "$PREFIX$num" 2>/dev/null
-  echo "$win hidden; the agent is still running"
-  [ -z "$last" ] || echo "note: that was the last terminal in space '$sess', so herdr removes the space; recreate it from a herdr client"
-}
+def terminals(*args):
+    code, out, _ = run(HC, "ls", "--json", *args)
+    try:
+        return json.loads(out).get("terminals", []) if code == 0 else []
+    except ValueError:
+        return []
 
-list() {
-  local wid sess win addr
-  while IFS='|' read -r wid sess win; do
-    addr=$(terminal_for "${wid#@}")
-    printf '%-6s %-28s %s\n' "$wid" "$sess:$win" "${addr:-not in herdr}"
-  done < <(windows "${1:-}")
-}
 
-usage() { sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; }
+def terminal_for(num):
+    """The address of the terminal showing window @num, or None."""
+    found = terminals("--label", "herdr.window=" + num)
+    return found[0]["address"] if found else None
 
-cmd="${1:-}"; [ $# -eq 0 ] || shift
-case "$cmd" in
-  show) [ $# -ge 1 ] || die "usage: herdr-manage show <session>:<window>"; for w in "$@"; do show "$w"; done ;;
-  hide) [ $# -ge 1 ] || die "usage: herdr-manage hide <session>:<window>"; for w in "$@"; do hide "$w"; done ;;
-  list) list "${1:-}" ;;
-  ""|-h|--help|help) usage ;;
-  *) usage >&2; exit 2 ;;
-esac
+
+def terminal_name(window, num):
+    """hc names are 1-32 of a-z 0-9 - _ and unique among live terminals: the
+    window name made legal, with the window id added if it's taken."""
+    base = re.sub(r"[^a-z0-9_-]+", "-", window.lower()).strip("-_")[:28] or "window"
+    taken = {t["name"] for t in terminals()}
+    return base if base not in taken else ("%s-%s" % (base[:24], num))[:32]
+
+
+# ── herdr's layout ──────────────────────────────────────────────────
+
+def rpc(method, params):
+    request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
+    _, out, _ = run(HC, "connect", input=request + "\n")
+    for line in out.splitlines():
+        try:
+            message = json.loads(line)
+        except ValueError:
+            continue
+        if message.get("id") == 1:
+            return message
+    die("no reply from hc connect (%s)" % method)
+
+
+def read_layout():
+    got = rpc("doc.get", {"name": LAYOUT})
+    if "error" in got:
+        die("cannot read herdr's layout: %s" % got["error"].get("message"))
+    return got["result"]
+
+
+def edit_layout(change):
+    """Apply change(layout), which returns whether it changed anything. The
+    write only lands if herdr hasn't written in between; otherwise read again."""
+    for _ in range(10):
+        current = read_layout()
+        layout = current.get("value") or {"spaces": []}
+        if not change(layout):
+            return
+        put = rpc("doc.set", {"name": LAYOUT, "version": current["version"], "value": layout})
+        if "error" not in put:
+            return
+        if (put["error"].get("data") or {}).get("kind") != "conflict":
+            die("cannot write herdr's layout: %s" % put["error"].get("message"))
+        time.sleep(0.2)
+    die("herdr's layout kept changing; try again")
+
+
+def panes(node):
+    """Terminal addresses under a layout node."""
+    found = []
+    terminal = (node.get("content") or {}).get("terminal")
+    if terminal:
+        found.append(terminal)
+    for child in node.get("children", []):
+        found += panes(child)
+    return found
+
+
+def space_id(session):
+    """The id of the space named after this session, or a new one."""
+    for space in (read_layout().get("value") or {}).get("spaces", []):
+        if space.get("name") == session:
+            return space["id"]
+    return "spe" + secrets.token_hex(16)
+
+
+def place(space, session, folder, window, address):
+    """Make sure `address` is a tab named after the window, in a space named
+    after the session. With space None, only names what herdr already placed."""
+    def change(layout):
+        spaces = layout.setdefault("spaces", [])
+        holder = next((s for s in spaces if address in panes_of(s)), None)
+        target = holder or next((s for s in spaces if s["id"] == space), None)
+        changed = False
+        if target is None:
+            if space is None:
+                return False
+            target = {"folder": folder, "id": space, "name": session, "tabs": []}
+            spaces.append(target)
+            changed = True
+        elif not target.get("name"):
+            target["name"] = session
+            changed = True
+        tab = next((t for t in target["tabs"] if address in panes(t["root"])), None)
+        if tab is None:
+            tab_id = "tb" + secrets.token_hex(16)
+            target["tabs"].append({
+                "id": tab_id,
+                "name": window,
+                "root": {"children": [{"content": {"terminal": address},
+                                       "id": "p" + secrets.token_hex(16), "type": "block"}],
+                         "id": tab_id, "type": "row"},
+            })
+            changed = True
+        elif not tab.get("name"):
+            tab["name"] = window
+            changed = True
+        return changed
+    edit_layout(change)
+
+
+def panes_of(space):
+    return [a for tab in space.get("tabs", []) for a in panes(tab["root"])]
+
+
+def prune(node, address):
+    """Drop `address`'s pane under node; return whether node is left empty."""
+    kept = []
+    for child in node.get("children", []):
+        if (child.get("content") or {}).get("terminal") == address:
+            continue
+        if "children" in child and prune(child, address):
+            continue
+        kept.append(child)
+    node["children"] = kept
+    return not kept
+
+
+def unplace(address):
+    """Take `address` out of the layout; an emptied tab or space goes with it."""
+    def change(layout):
+        changed = False
+        for space in list(layout.get("spaces", [])):
+            for tab in list(space.get("tabs", [])):
+                if address in panes(tab["root"]):
+                    changed = True
+                    if prune(tab["root"], address):
+                        space["tabs"].remove(tab)
+            if changed and not space["tabs"]:
+                layout["spaces"].remove(space)
+        return changed
+    edit_layout(change)
+
+
+# ── commands ────────────────────────────────────────────────────────
+
+def show(target):
+    wid, session, window = resolve(target)
+    num = wid.lstrip("@")
+    folder = tmux("display-message", "-p", "-t", wid, "#{pane_current_path}").strip() or HOME
+
+    address = terminal_for(num)
+    if address:
+        place(None, session, folder, window, address)
+        print("%s already in herdr as %s" % (window, address))
+        return
+
+    space = space_id(session)
+    view = PREFIX + num
+    if run("tmux", "has-session", "-t", "=" + view)[0]:
+        placeholder = tmux("new-session", "-d", "-s", view, "-n", "__view_placeholder",
+                           "-P", "-F", "#{window_id}").strip()
+        tmux("link-window", "-s", wid, "-t", view + ":90")
+        if placeholder:
+            tmux("kill-window", "-t", placeholder)
+
+    name = terminal_name(window, num)
+    code, out, err = run(HC, "run", "--bg", "--name", name, "--cwd", folder,
+                         "--label", "herdr.space=" + space, "--label", "herdr.window=" + num,
+                         "tmux", "attach", "-t", view)
+    if code:
+        die("hc run failed for '%s': %s" % (name, (err or out).strip()[:300]))
+    # hc can drop a run without saying so; confirm the terminal exists.
+    for _ in range(10):
+        address = terminal_for(num)
+        if address:
+            break
+        time.sleep(1)
+    if not address:
+        tmux("kill-session", "-t", "=" + view)
+        die("hc did not create a terminal for '%s'" % name)
+
+    place(space, session, folder, window, address)
+
+    # muxlight reports on change; publish the current state so the tab is right now.
+    first = tmux("list-panes", "-t", wid, "-F", "#{@pst_state}|#{@pst_kind}|#{@pst_app}").splitlines()
+    state, kind, app = (first[0].split("|") + ["", "", ""])[:3] if first else ("", "", "")
+    if state:
+        body = "state=" + state + (":kind=" + kind if kind else "") + (":app=" + app if app else "")
+        run(HC, "report", body, "--terminal", address)
+    print("%s shown as %s in space %s" % (name, address, session))
+
+
+def hide(target):
+    wid, _, window = resolve(target)
+    num = wid.lstrip("@")
+    address = terminal_for(num)
+    if not address:
+        print("%s is not shown in herdr" % window)
+        return
+    run(HC, "kill", address)
+    run(HC, "rm", address)
+    tmux("kill-session", "-t", "=" + PREFIX + num)
+    unplace(address)
+    print("%s hidden; the agent is still running" % window)
+
+
+def list_windows(session=None):
+    for wid, session_name, window in windows(session):
+        address = terminal_for(wid.lstrip("@"))
+        print("%-6s %-28s %s" % (wid, session_name + ":" + window, address or "not in herdr"))
+
+
+def main(argv):
+    usage = "\n".join(__doc__.splitlines()[:6])
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(usage)
+        return
+    if run("tmux", "-V")[0]:
+        die("tmux not found")
+    if not os.access(HC, os.X_OK):
+        die("hc not found at " + HC)
+    command, args = argv[0], argv[1:]
+    if command in ("show", "hide"):
+        if not args:
+            die("usage: herdr-manage %s <session>:<window>" % command)
+        for target in args:
+            (show if command == "show" else hide)(target)
+    elif command == "list":
+        list_windows(args[0] if args else None)
+    else:
+        print(usage, file=sys.stderr)
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
