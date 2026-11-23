@@ -581,7 +581,7 @@ fi
 # has nothing to resume, which is normal: a freshly started agent, or one
 # still booting. Those must not block saving everyone else's sessions.
 failed=0
-for idx in "${unresolved[@]}"; do
+for idx in "${unresolved[@]+"${unresolved[@]}"}"; do
   [ -n "${PANE_ERRORS[$idx]}" ] && failed=$((failed + 1))
 done
 
