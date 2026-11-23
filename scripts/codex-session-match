@@ -83,6 +83,18 @@ def replies(path):
     return norm(" ".join(texts[-REPLIES:]))
 
 
+def open_state():
+    """Read-only. The database is in WAL mode, and while no Codex has it open
+    there is no -shm file, which a read-only open can't create; then nothing
+    is writing it, so open it as immutable."""
+    try:
+        db = sqlite3.connect("file:%s?mode=ro" % STATE_DB, uri=True)
+        db.execute("select 1 from threads limit 1")
+        return db
+    except sqlite3.OperationalError:
+        return sqlite3.connect("file:%s?immutable=1" % STATE_DB, uri=True)
+
+
 def parent(db, sid):
     row = db.execute("select source from threads where id = ?", (sid,)).fetchone()
     try:
@@ -127,7 +139,7 @@ def runs_codex(pane):
 def main(panes):
     if not os.path.exists(STATE_DB):
         return
-    db = sqlite3.connect("file:%s?mode=ro" % STATE_DB, uri=True)
+    db = open_state()
     sessions = db.execute(
         "select id, rollout_path from threads where rollout_path is not null and rollout_path != ''"
     ).fetchall()

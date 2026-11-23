@@ -64,7 +64,11 @@ import sqlite3
 import sys
 
 db, session_id = sys.argv[1], sys.argv[2]
-conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+try:  # no -shm while no Codex has the WAL database open; then it's not changing
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    conn.execute("select 1 from threads limit 1")
+except sqlite3.OperationalError:
+    conn = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
 try:
     row = conn.execute(
         "select rollout_path, has_user_event from threads where id = ?",
@@ -96,7 +100,11 @@ import sqlite3
 import sys
 
 db, sid = sys.argv[1], sys.argv[2]
-conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+try:  # no -shm while no Codex has the WAL database open; then it's not changing
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    conn.execute("select 1 from threads limit 1")
+except sqlite3.OperationalError:
+    conn = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
 seen = set()
 try:
     while sid not in seen:
