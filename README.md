@@ -52,6 +52,7 @@ config/
   claude/             -> ~/.claude/     # Claude Code config
     commands/                           # Slash commands
     settings.json                       # Claude settings
+  agents/skills/      -> ~/.agents/skills/   # Agent skills (Claude and Codex)
   codex/config.toml                     # Shared keys, merged into ~/.codex/config.toml
   herdr/programs.json -> ~/.config/herdr-app/programs.json
   ghostty/config      -> ~/.config/ghostty/config

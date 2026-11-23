@@ -47,8 +47,10 @@ pane_label() {
 codex_rollout_exists() {
   local session_id="$1"
   [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
+  # Codex compresses older rollouts to .jsonl.zst and still resumes from them.
   find "$HOME/.codex/sessions" "$HOME/.codex/archived_sessions" \
-    -type f -name "*-$session_id.jsonl" -print -quit 2>/dev/null | grep -q .
+    -type f \( -name "*-$session_id.jsonl" -o -name "*-$session_id.jsonl.zst" \) \
+    -print -quit 2>/dev/null | grep -q .
 }
 
 omp_session_exists() {
@@ -62,7 +64,19 @@ omp_session_in_pane() {
   local target="$1" expected_id="$2" pane_id pane_tty tty_key marker transcript actual_id
   pane_id=$(tmux list-panes -t "$target" -F '#{pane_id}' 2>/dev/null | head -1)
   [ -n "$pane_id" ] || return 1
-  pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
+  # omp records its session by the terminal it runs on; under muxlight that
+  # is muxlight's own pty, not the pane's.
+  local pane_pid pid tty
+  pane_tty=""
+  pane_pid=$(tmux display-message -p -t "$pane_id" '#{pane_pid}' 2>/dev/null || true)
+  for pid in $(process_tree "$pane_pid"); do
+    args=$(ps -o args= -p "$pid" 2>/dev/null || true)
+    echo "$args" | grep -Eq '(^|[ /])omp([[:space:]]|$)' || continue
+    echo "$args" | grep -q 'muxlight' && continue
+    tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$tty" in ""|"?") ;; *) pane_tty="/dev/$tty"; break ;; esac
+  done
+  [ -n "$pane_tty" ] || pane_tty=$(tmux display-message -p -t "$pane_id" '#{pane_tty}' 2>/dev/null || true)
   [ -n "$pane_tty" ] || return 1
   tty_key="${pane_tty#/dev/}"
   tty_key="${tty_key//\//-}"

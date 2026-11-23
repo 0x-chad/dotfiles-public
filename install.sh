@@ -431,6 +431,20 @@ install_scripts() {
     echo "  Linking scripts/$name -> ~/scripts/$name"
   done
 
+  # Agent skills, shared by Claude (~/.claude/skills points here) and Codex.
+  mkdir -p "$HOME/.agents/skills"
+  for skill in "$DOTFILES_DIR/config/agents/skills/"*/; do
+    [[ -d "$skill" ]] || continue
+    name="$(basename "$skill")"
+    target="$HOME/.agents/skills/$name"
+    if [[ -e "$target" && ! -L "$target" ]]; then
+      echo "  Keeping existing ~/.agents/skills/$name"
+      continue
+    fi
+    ln -sfn "${skill%/}" "$target"
+    echo "  Linking config/agents/skills/$name -> ~/.agents/skills/$name"
+  done
+
   # herdr's + menu entries, only where the herdr app is installed.
   if command -v herdr-app >/dev/null 2>&1 && [[ -f "$DOTFILES_DIR/config/herdr/programs.json" ]]; then
     mkdir -p "$HOME/.config/herdr-app"
