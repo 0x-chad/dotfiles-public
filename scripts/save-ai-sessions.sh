@@ -81,6 +81,44 @@ raise SystemExit(1)
 PY
 }
 
+codex_root_thread() {
+  # The conversation a session belongs to: a sub-agent's parent, up to the
+  # top. Codex only reopens a sub-agent through its parent, so a pane showing
+  # one has to save the parent. Prints the id unchanged when it isn't a sub-agent.
+  local session_id="$1" db="$HOME/.codex/state_5.sqlite"
+  if [ ! -f "$db" ] || ! command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "$session_id"
+    return
+  fi
+  python3 - "$db" "$session_id" <<'PY' 2>/dev/null || printf '%s\n' "$session_id"
+import json
+import sqlite3
+import sys
+
+db, sid = sys.argv[1], sys.argv[2]
+conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+seen = set()
+try:
+    while sid not in seen:
+        seen.add(sid)
+        row = conn.execute("select source from threads where id = ?", (sid,)).fetchone()
+        try:
+            source = json.loads(row[0]) if row and row[0] else {}
+        except ValueError:
+            source = {}
+        if not isinstance(source, dict):
+            break
+        spawn = (source.get("subagent") or {}).get("thread_spawn") or {}
+        parent = spawn.get("parent_thread_id") or source.get("parent_thread_id")
+        if not parent:
+            break
+        sid = parent
+finally:
+    conn.close()
+print(sid)
+PY
+}
+
 omp_session_exists() {
   local session_id="$1"
   [ -n "$session_id" ] && [ "$session_id" != "null" ] || return 1
@@ -444,6 +482,7 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
   agent_type=""
   session_id=""
   session_error=""
+  via_subagent=0
 
   for pid in $(process_tree "$pane_pid"); do
     args=$(ps_args "$pid")
@@ -465,6 +504,13 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
     session_id=$(extract_claude_session_id "$pane_pid" || true)
   elif [ "$agent_type" = "codex" ]; then
     session_id=$(extract_codex_session_id "$pane_pid" "$pane_path" || true)
+    if [ -n "$session_id" ]; then
+      root_id=$(codex_root_thread "$session_id")
+      if [ -n "$root_id" ] && [ "$root_id" != "$session_id" ]; then
+        session_id="$root_id"
+        via_subagent=1
+      fi
+    fi
     [ -n "$session_id" ] && CLAIMED_SIDS+=("$session_id")
     if [ -n "$session_id" ] && ! codex_rollout_exists "$session_id"; then
       if codex_session_is_unpersisted "$session_id"; then
@@ -498,6 +544,7 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
   PANE_WINNAMES+=("$win_name")
   PANE_PANEIDX+=("$pane_idx")
   PANE_PATHS+=("$pane_path")
+  PANE_VIA_SUBAGENT+=("$via_subagent")
 done < <(tmux list-panes -a -F '#{session_name}|#{window_index}|#{window_name}|#{pane_index}|#{pane_pid}|#{pane_current_path}|#{pane_id}')
 
 total=${#PANE_IDS[@]}
@@ -517,17 +564,30 @@ found=0
 skipped=0
 unresolved=()
 
-for idx in "${!PANE_IDS[@]}"; do
-  session_id="${PANE_SESSION_IDS[$idx]}"
-  if [ -n "$session_id" ]; then
-    echo "  OK   ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] $session_id"
-    append_entry "$TMPFILE" \
-      "${PANE_SESSIONS[$idx]}" "${PANE_WINIDX[$idx]}" "${PANE_WINNAMES[$idx]}" "${PANE_PANEIDX[$idx]}" \
-      "${PANE_IDS[$idx]}" "${PANE_TYPES[$idx]}" "$session_id" "${PANE_PATHS[$idx]}"
-    found=$((found + 1))
-  else
-    unresolved+=("$idx")
-  fi
+# Panes on their own session first, then panes showing a sub-agent. A session
+# is saved once: a sub-agent pane whose parent another window already holds is
+# skipped, so a restore never runs the same conversation twice.
+saved_ids=" "
+for pass in 0 1; do
+  for idx in "${!PANE_IDS[@]}"; do
+    [ "${PANE_VIA_SUBAGENT[$idx]}" = "$pass" ] || continue
+    session_id="${PANE_SESSION_IDS[$idx]}"
+    if [ -n "$session_id" ]; then
+      case "$saved_ids" in
+        *" $session_id "*)
+          echo "  SAME ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] — shows a sub-agent of $session_id, saved for another window"
+          continue ;;
+      esac
+      saved_ids+="$session_id "
+      echo "  OK   ${PANE_LABELS[$idx]} [${PANE_TYPES[$idx]}] $session_id"
+      append_entry "$TMPFILE" \
+        "${PANE_SESSIONS[$idx]}" "${PANE_WINIDX[$idx]}" "${PANE_WINNAMES[$idx]}" "${PANE_PANEIDX[$idx]}" \
+        "${PANE_IDS[$idx]}" "${PANE_TYPES[$idx]}" "$session_id" "${PANE_PATHS[$idx]}"
+      found=$((found + 1))
+    else
+      unresolved+=("$idx")
+    fi
+  done
 done
 
 if [ ${#unresolved[@]} -gt 0 ] && [ "$PROBE_STATUS" != true ]; then
