@@ -242,6 +242,11 @@ def unplace(address):
     edit_layout(change)
 
 
+def hide_status(view):
+    # herdr shows its own tab names; the view's tmux status bar only costs a row.
+    tmux("set-option", "-t", view, "status", "off")
+
+
 # ── commands ────────────────────────────────────────────────────────
 
 def show(target):
@@ -252,6 +257,7 @@ def show(target):
     view = PREFIX + num
     address = terminal_for(num)
     if address and attached(address, view, wid):
+        hide_status(view)
         place(None, session, folder, window, address)
         print("%s already in herdr as %s" % (window, address))
         return
@@ -270,6 +276,7 @@ def show(target):
         tmux("link-window", "-s", wid, "-t", view + ":90")
         if placeholder:
             tmux("kill-window", "-t", placeholder)
+    hide_status(view)
 
     name = terminal_name(window, num)
     code, out, err = run(HC, "run", "--bg", "--name", name, "--cwd", folder,
