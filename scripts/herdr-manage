@@ -20,6 +20,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import subprocess
 import sys
 import time
@@ -247,6 +248,25 @@ def hide_status(view):
     tmux("set-option", "-t", view, "status", "off")
 
 
+def muxlights(wid):
+    """muxlight processes running in the window's panes."""
+    roots = set(tmux("list-panes", "-t", wid, "-F", "#{pane_pid}").split())
+    children = {}
+    for line in run("ps", "-eo", "pid=,ppid=,args=")[1].splitlines():
+        parts = line.split(None, 2)
+        if len(parts) == 3:
+            children.setdefault(parts[1], []).append((parts[0], parts[2]))
+    found, stack = [], list(roots)
+    args = {pid: a for kids in children.values() for pid, a in kids}
+    while stack:
+        pid = stack.pop()
+        argv0 = args.get(pid, "").split(" ", 1)[0]
+        if os.path.basename(argv0) == "muxlight":
+            found.append(int(pid))
+        stack.extend(child for child, _ in children.get(pid, []))
+    return found
+
+
 # ── commands ────────────────────────────────────────────────────────
 
 def show(target):
@@ -296,12 +316,12 @@ def show(target):
 
     place(space, session, folder, window, address)
 
-    # muxlight reports on change; publish the current state so the tab is right now.
-    first = tmux("list-panes", "-t", wid, "-F", "#{@pst_state}|#{@pst_kind}|#{@pst_app}").splitlines()
-    state, kind, app = (first[0].split("|") + ["", "", ""])[:3] if first else ("", "", "")
-    if state:
-        body = "state=" + state + (":kind=" + kind if kind else "") + (":app=" + app if app else "")
-        run(HC, "report", body, "--terminal", address)
+    # muxlight sends status on change; SIGWINCH has it tell the new tab now.
+    for pid in muxlights(wid):
+        try:
+            os.kill(pid, signal.SIGWINCH)
+        except OSError:
+            pass
     print("%s shown as %s in space %s" % (name, address, session))
 
 
