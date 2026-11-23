@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Which Codex session each tmux pane is showing.
+
+  codex-session-match <pane-id>...
+
+Prints one line per pane running Codex:  <pane-id> TAB <status> TAB <session-id>
+
+  ok        the pane shows this session
+  subagent  the pane shows a sub-agent; the session is its top parent, the
+            one Codex can resume
+  empty     no agent replies on screen (a new session, or a menu)
+  unknown   the replies on screen don't come from exactly one session
+
+Codex runs sessions in a shared background server, so a pane's session id is
+neither on its command line nor in its open files. What a pane does show is
+the agent's replies. The last of those lines are looked up in the replies
+saved in every session; the one session they come from is the pane's. Nothing
+is guessed: no single match is "unknown".
+
+Each session's replies are cached in ~/.cache/codex-session-match.json and
+read again only when its file changes.
+"""
+import collections
+import json
+import os
+import re
+import sqlite3
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+STATE_DB = os.path.join(HOME, ".codex/state_5.sqlite")
+CACHE = os.path.join(HOME, ".cache/codex-session-match.json")
+SCREEN_LINES = 12      # agent lines taken from the bottom of the screen
+MIN_CHARS = 30         # letters and digits a line needs to be distinctive
+MIN_HITS = 2           # lines that must be found in the winning session
+REPLIES = 40           # latest replies kept per session
+
+
+def sh(*argv):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True).stdout
+    except FileNotFoundError:
+        return ""
+
+
+def norm(text):
+    """Letters and digits only: the screen wraps, indents and renders markdown."""
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def screen(pane):
+    lines = []
+    for line in sh("tmux", "capture-pane", "-p", "-t", pane, "-S", "-120").splitlines():
+        s = line.strip()
+        if not s or s.startswith("›") or "for shortcuts" in s or "for agents" in s:
+            continue
+        if "·" in s and re.match(r"^(gpt|claude|o\d)", s.lower()):
+            continue  # the footer: model · folder · name
+        n = norm(s.lstrip("•-─│└├ "))
+        if len(n) >= MIN_CHARS:
+            lines.append(n)
+    return lines[-SCREEN_LINES:]
+
+
+def replies(path):
+    """Normalized text of a session's latest replies."""
+    if path.endswith(".zst"):
+        raw = sh("zstdcat", "-f", path)
+    else:
+        with open(path, errors="replace") as f:
+            raw = f.read()
+    texts = []
+    for line in raw.splitlines()[-3000:]:
+        try:
+            payload = json.loads(line).get("payload") or {}
+        except (ValueError, AttributeError):
+            continue
+        if payload.get("type") == "message" and payload.get("role") == "assistant":
+            texts.append(" ".join(c.get("text", "") for c in payload.get("content", []) if isinstance(c, dict)))
+        elif payload.get("type") == "agent_message":
+            texts.append(payload.get("message", ""))
+    return norm(" ".join(texts[-REPLIES:]))
+
+
+def parent(db, sid):
+    row = db.execute("select source from threads where id = ?", (sid,)).fetchone()
+    try:
+        source = json.loads(row[0]) if row and row[0] else {}
+    except ValueError:
+        return None
+    if not isinstance(source, dict):
+        return None
+    spawn = (source.get("subagent") or {}).get("thread_spawn") or {}
+    return spawn.get("parent_thread_id") or source.get("parent_thread_id")
+
+
+def top(db, sid):
+    seen = set()
+    while sid not in seen:
+        seen.add(sid)
+        up = parent(db, sid)
+        if not up:
+            break
+        sid = up
+    return sid
+
+
+def runs_codex(pane):
+    pid = sh("tmux", "display-message", "-p", "-t", pane, "#{pane_pid}").strip()
+    if not pid:
+        return False
+    children = collections.defaultdict(list)
+    for line in sh("ps", "-eo", "pid=,ppid=,args=").splitlines():
+        parts = line.split(None, 2)
+        if len(parts) == 3:
+            children[parts[1]].append((parts[0], parts[2]))
+    stack = [pid]
+    while stack:
+        for child, args in children.get(stack.pop(), []):
+            if re.search(r"(^|[ /])codex([ ]|$)", args) or "@openai/codex" in args:
+                return True
+            stack.append(child)
+    return False
+
+
+def main(panes):
+    if not os.path.exists(STATE_DB):
+        return
+    db = sqlite3.connect("file:%s?mode=ro" % STATE_DB, uri=True)
+    sessions = db.execute(
+        "select id, rollout_path from threads where rollout_path is not null and rollout_path != ''"
+    ).fetchall()
+
+    try:
+        with open(CACHE) as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        cache = {}
+    fresh = {}
+
+    def text_of(path):
+        if not os.path.exists(path) and os.path.exists(path + ".zst"):
+            path += ".zst"
+        try:
+            st = os.stat(path)
+        except OSError:
+            return ""
+        key = "%s|%d|%d" % (path, st.st_mtime, st.st_size)
+        if key not in cache:
+            cache[key] = replies(path)
+        fresh[key] = cache[key]
+        return cache[key]
+
+    texts = [(sid, text_of(path)) for sid, path in sessions]
+
+    for pane in panes:
+        if not runs_codex(pane):
+            continue
+        lines = screen(pane)
+        if not lines:
+            print("%s\tempty\t" % pane)
+            continue
+        hits = collections.Counter()
+        for sid, text in texts:
+            n = sum(1 for line in lines if line in text)
+            if n:
+                hits[sid] = n
+        best = hits.most_common(2)
+        if not best or best[0][1] < MIN_HITS or (len(best) > 1 and best[1][1] == best[0][1]):
+            print("%s\tunknown\t" % pane)
+            continue
+        sid = best[0][0]
+        main_sid = top(db, sid)
+        print("%s\t%s\t%s" % (pane, "subagent" if main_sid != sid else "ok", main_sid))
+
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    tmp = CACHE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(fresh, f)
+    os.replace(tmp, CACHE)
+
+
+if __name__ == "__main__":
+    if not sys.argv[1:] or sys.argv[1] in ("-h", "--help"):
+        print(__doc__.strip())
+        sys.exit(0)
+    main(sys.argv[1:])

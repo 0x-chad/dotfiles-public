@@ -245,13 +245,6 @@ extract_codex_session_id_from_args() {
   return 1
 }
 
-process_start_epoch() {
-  local pid="$1" start
-  start=$(ps -p "$pid" -o lstart= 2>/dev/null || true)
-  [ -n "$start" ] || return 1
-  date -d "$start" +%s 2>/dev/null
-}
-
 extract_codex_session_id_from_fd() {
   # A running codex process keeps its rollout .jsonl open, so /proc/<pid>/fd
   # names the session outright. This is exact -- unlike cwd+timestamp matching,
@@ -270,123 +263,15 @@ extract_codex_session_id_from_fd() {
   return 1
 }
 
-extract_fork_session_id() {
-  local pid="$1" pane_path="$2" start_epoch file meta
-  local session_id session_cwd session_timestamp session_epoch delta
-  local best_id="" ambiguous=false
-
-  start_epoch=$(process_start_epoch "$pid" || true)
-  [ -n "$start_epoch" ] || return 1
-
-  while IFS= read -r file; do
-    meta=$(head -1 "$file" | jq -r 'select(.payload.thread_source != "subagent" and (.payload.source | type) != "object") | [.payload.id,.payload.cwd,.payload.timestamp] | @tsv' 2>/dev/null || true)
-    IFS=$'\t' read -r session_id session_cwd session_timestamp <<< "$meta"
-    [ -n "$session_id" ] && [ "$session_cwd" = "$pane_path" ] || continue
-    session_epoch=$(date -d "$session_timestamp" +%s 2>/dev/null || true)
-    [ -n "$session_epoch" ] || continue
-    delta=$((session_epoch - start_epoch))
-    [ "$delta" -ge -120 ] && [ "$delta" -le 120 ] || continue
-    if [ -z "$best_id" ]; then
-      best_id="$session_id"
-      ambiguous=false
-    elif [ "$session_id" != "$best_id" ]; then
-      ambiguous=true
-    fi
-  done < <(find "$HOME/.codex/sessions" -type f -name '*.jsonl' -print 2>/dev/null)
-
-  # Timing is only a fallback. Multiple candidates cannot prove ownership.
-  if [ -n "$best_id" ] && [ "$ambiguous" = false ]; then
-    printf '%s\n' "$best_id"
-    return 0
-  fi
-
-  return 1
-}
-
-query_codex_log_db() {
-  local db="$1" pid="$2"
-  local query="select thread_id from logs where process_uuid like 'pid:$pid:%' and thread_id is not null order by ts desc, ts_nanos desc, id desc limit 1;"
-
-  if command -v sqlite3 >/dev/null 2>&1; then
-    sqlite3 "$db" "$query" 2>/dev/null
-  elif command -v python3 >/dev/null 2>&1; then
-    python3 - "$db" "$pid" <<'PY' 2>/dev/null
-import sqlite3
-import sys
-
-db, pid = sys.argv[1], sys.argv[2]
-conn = sqlite3.connect(db)
-try:
-    row = conn.execute(
-        """
-        select thread_id
-        from logs
-        where process_uuid like ?
-          and thread_id is not null
-        order by ts desc, ts_nanos desc, id desc
-        limit 1
-        """,
-        (f"pid:{pid}:%",),
-    ).fetchone()
-    if row and row[0]:
-        print(row[0])
-finally:
-    conn.close()
-PY
-  fi
-}
-
-extract_codex_session_id_from_state_db() {
-  # Codex 0.158+ hands the rollout file to the shared app-server daemon, so a
-  # pane started without "resume <id>" has the id in neither its argv nor its
-  # own /proc/<pid>/fd, and logs_2.sqlite is keyed by the daemon pid. The
-  # threads table in state_5.sqlite still records cwd + rollout_path, so the
-  # most recently updated rollout-backed thread for this directory is the
-  # session. CLAIMED_SIDS keeps two panes in one directory from taking the same
-  # thread; without it the newest would win twice and the older pane would be
-  # silently mismapped. Sub-agent threads are never the answer: they are helpers
-  # a session spawned, share its directory, and rank among the newest, so with
-  # several panes in one directory the last pane to resolve was handed one that
-  # was not the pane's own conversation.
-  local pane_path="$1" db="$HOME/.codex/state_5.sqlite" claimed
-  [ -n "$pane_path" ] || return 1
-  [ -f "$db" ] || return 1
-  command -v python3 >/dev/null 2>&1 || return 1
-  claimed=$(printf '%s\n' "${CLAIMED_SIDS[@]+"${CLAIMED_SIDS[@]}"}")
-
-  python3 - "$db" "$pane_path" "$claimed" <<PYEOF
-import sqlite3
-import sys
-
-db, cwd, claimed_raw = sys.argv[1], sys.argv[2], sys.argv[3]
-claimed = {c for c in claimed_raw.split() if c}
-conn = sqlite3.connect("file:{}?mode=ro".format(db), uri=True)
-try:
-    rows = conn.execute(
-        "select id from threads where cwd = ? and rollout_path is not null "
-        "and rollout_path != '' "
-        "and coalesce(thread_source, '') != 'subagent' "
-        "and coalesce(source, '') not like '%subagent%' "
-        "order by updated_at desc limit 20",
-        (cwd,),
-    ).fetchall()
-finally:
-    conn.close()
-
-for (sid,) in rows:
-    if sid not in claimed:
-        print(sid)
-        break
-PYEOF
-}
-
 extract_codex_session_id() {
-  local pane_pid="$1" pane_path="${2:-}" pid args sid db
+  # The id a codex process was started with: "resume <id>" on its command
+  # line, or a rollout file it holds open. Exact, but only the launch id; the
+  # screen match in codex-session-match follows /new, /resume and sub-agents.
+  local pane_pid="$1" pid args sid
 
   for pid in $(process_tree "$pane_pid"); do
     args=$(ps_args "$pid")
     [ -z "$args" ] && continue
-
     sid=$(extract_codex_session_id_from_args "$args" || true)
     if [ -n "$sid" ]; then
       echo "$sid"
@@ -394,46 +279,7 @@ extract_codex_session_id() {
     fi
   done
 
-  sid=$(extract_codex_session_id_from_fd "$pane_pid" || true)
-  if [ -n "$sid" ]; then
-    echo "$sid"
-    return 0
-  fi
-
-  db="$HOME/.codex/logs_2.sqlite"
-  [ -f "$db" ] || return 1
-
-  for pid in $(process_tree "$pane_pid"); do
-    args=$(ps_args "$pid")
-    [ -z "$args" ] && continue
-    echo "$args" | grep -Eq '(^|[ /])codex([[:space:]]|$)' || continue
-
-    if echo "$args" | grep -Eq '(^|[[:space:]])fork([[:space:]]|$)' && [ -n "$pane_path" ]; then
-      sid=$(extract_fork_session_id "$pid" "$pane_path" || true)
-      if [ -n "$sid" ]; then
-        echo "$sid"
-        return 0
-      fi
-      # A shared app-server log may point at the parent or another thread.
-      return 1
-    fi
-
-    echo "$args" | grep -q 'node_modules/@openai/codex' || continue
-
-    sid=$(query_codex_log_db "$db" "$pid" | grep -oE "$UUID_RE" | head -1 || true)
-    if [ -n "$sid" ]; then
-      echo "$sid"
-      return 0
-    fi
-  done
-
-  sid=$(extract_codex_session_id_from_state_db "$pane_path" || true)
-  if [ -n "$sid" ]; then
-    echo "$sid"
-    return 0
-  fi
-
-  return 1
+  extract_codex_session_id_from_fd "$pane_pid"
 }
 
 append_entry() {
@@ -469,9 +315,12 @@ require_jq
 
 declare -a PANE_IDS=() PANE_LABELS=() PANE_TYPES=() PANE_SESSION_IDS=() PANE_ERRORS=()
 declare -a PANE_SESSIONS=() PANE_WINIDX=() PANE_WINNAMES=() PANE_PANEIDX=() PANE_PATHS=()
-declare -a CLAIMED_SIDS=()
 declare -a EMPTY_CODEX_PANES=()
 declare -a EMPTY_OMP_PANES=()
+
+# Which Codex session each pane shows, matched from the replies on its screen.
+CODEX_MATCHES=$(mktemp)
+"$(dirname "$0")/codex-session-match" $(tmux list-panes -a -F '#{pane_id}') > "$CODEX_MATCHES" 2>/dev/null || true
 
 while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pane_id; do
   # herdr's view sessions only link windows saved under their own session.
@@ -503,15 +352,28 @@ while IFS='|' read -r sess_name win_idx win_name pane_idx pane_pid pane_path pan
   if [ "$agent_type" = "claude" ]; then
     session_id=$(extract_claude_session_id "$pane_pid" || true)
   elif [ "$agent_type" = "codex" ]; then
-    session_id=$(extract_codex_session_id "$pane_pid" "$pane_path" || true)
-    if [ -n "$session_id" ]; then
-      root_id=$(codex_root_thread "$session_id")
-      if [ -n "$root_id" ] && [ "$root_id" != "$session_id" ]; then
-        session_id="$root_id"
-        via_subagent=1
-      fi
-    fi
-    [ -n "$session_id" ] && CLAIMED_SIDS+=("$session_id")
+    match=$(awk -F'\t' -v p="$pane_id" '$1 == p {print $2 "\t" $3; exit}' "$CODEX_MATCHES")
+    match_status=${match%%$'\t'*}
+    case "$match_status" in
+      ok) session_id=${match#*$'\t'} ;;
+      subagent) session_id=${match#*$'\t'}; via_subagent=1 ;;
+      *)
+        # Nothing on screen to match: fall back to the id it was started with.
+        session_id=$(extract_codex_session_id "$pane_pid" || true)
+        if [ -n "$session_id" ]; then
+          root_id=$(codex_root_thread "$session_id")
+          if [ -n "$root_id" ] && [ "$root_id" != "$session_id" ]; then
+            session_id="$root_id"
+            via_subagent=1
+          fi
+        elif [ "$match_status" = "empty" ]; then
+          EMPTY_CODEX_PANES+=("$(pane_label "$sess_name" "$win_name" "$pane_idx" "$win_idx")")
+          continue
+        else
+          session_error="no saved session matches the replies on screen"
+        fi
+        ;;
+    esac
     if [ -n "$session_id" ] && ! codex_rollout_exists "$session_id"; then
       if codex_session_is_unpersisted "$session_id"; then
         EMPTY_CODEX_PANES+=("$(pane_label "$sess_name" "$win_name" "$pane_idx" "$win_idx")")
@@ -557,7 +419,7 @@ for label in "${EMPTY_OMP_PANES[@]+"${EMPTY_OMP_PANES[@]}"}"; do
 done
 
 TMPFILE=$(mktemp)
-trap 'rm -f "$TMPFILE" "$TMPFILE.next"; rm -rf "${SNAP_DIR:-}"' EXIT
+trap 'rm -f "$TMPFILE" "$TMPFILE.next" "$CODEX_MATCHES"; rm -rf "${SNAP_DIR:-}"' EXIT
 echo "[]" > "$TMPFILE"
 
 found=0
